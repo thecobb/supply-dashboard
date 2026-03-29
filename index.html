@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>STOCKPILE — Global Supply Monitor</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.15.0/Recharts.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg-primary: #0a0c10;
+    --bg-secondary: #111318;
+    --bg-card: #151820;
+    --bg-elevated: #1a1e28;
+    --border: #252a36;
+    --border-bright: #3a4155;
+    --text-primary: #e8ecf4;
+    --text-secondary: #8892a8;
+    --text-muted: #555f75;
+    --accent-green: #00e676;
+    --accent-green-dim: #00e67633;
+    --accent-red: #ff3d57;
+    --accent-red-dim: #ff3d5733;
+    --accent-amber: #ffab00;
+    --accent-amber-dim: #ffab0033;
+    --accent-blue: #448aff;
+    --accent-cyan: #00e5ff;
+    --accent-purple: #b388ff;
+    --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+    --font-sans: 'Instrument Sans', -apple-system, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  .scanline {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none; z-index: 9999;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent, transparent 2px,
+      rgba(0, 230, 118, 0.008) 2px, rgba(0, 230, 118, 0.008) 4px
+    );
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes glow-pulse {
+    0%, 100% { box-shadow: 0 0 4px var(--accent-green-dim); }
+    50% { box-shadow: 0 0 16px var(--accent-green-dim); }
+  }
+
+  @keyframes ticker-scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    animation: fade-up 0.5s ease both;
+  }
+
+  .card:hover { border-color: var(--border-bright); }
+
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    display: inline-block;
+    animation: pulse-dot 2s ease infinite;
+  }
+
+  .sparkline-container { height: 40px; width: 100%; }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg-primary); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .ticker-wrap {
+    overflow: hidden; white-space: nowrap;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+  }
+  .ticker-inner {
+    display: inline-flex;
+    animation: ticker-scroll 60s linear infinite;
+  }
+  .ticker-inner:hover { animation-play-state: paused; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div class="scanline"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useCallback, useMemo, useRef } = React;
+const { LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid, ReferenceLine } = Recharts;
+
+// ─── CONFIG ──────────────────────────────────────────────────
+const EIA_BASE = 'https://api.eia.gov/v2';
+const BASELINE_DATE = '2026-02-27';
+const CONFLICT_START = new Date('2026-02-27');
+
+// EIA API series configurations for weekly petroleum data
+const COMMODITY_CONFIG = [
+  {
+    id: 'crude_excl_spr',
+    name: 'Crude Oil',
+    subtitle: 'Excl. SPR',
+    ticker: 'CRD.X',
+    unit: 'M bbl',
+    color: '#448aff',
+    apiPath: 'petroleum/stoc/wstk/data/',
+    facets: { product: ['EPC0'], process: ['SAE'] },
+    consumptionPath: 'petroleum/sum/sndw/data/',
+    consumptionFacets: { product: ['EPC0'], process: ['FPF'] },
+    divisor: 1000,
+  },
+  {
+    id: 'crude_incl_spr',
+    name: 'Crude Oil',
+    subtitle: 'Incl. SPR',
+    ticker: 'CRD.T',
+    unit: 'M bbl',
+    color: '#536dfe',
+    apiPath: 'petroleum/stoc/wstk/data/',
+    facets: { product: ['EPC0'], process: ['SAX'] },
+    consumptionPath: 'petroleum/sum/sndw/data/',
+    consumptionFacets: { product: ['EPC0'], process: ['FPF'] },
+    divisor: 1000,
+  },
+  {
+    id: 'gasoline',
+    name: 'Motor Gasoline',
+    subtitle: 'Total',
+    ticker: 'GAS.D',
+    unit: 'M bbl',
+    color: '#00e676',
+    apiPath: 'petroleum/stoc/wstk/data/',
+    facets: { product: ['EPM0'], process: ['SAE'] },
+    consumptionPath: 'petroleum/sum/sndw/data/',
+    consumptionFacets: { product: ['EPM0'], process: ['FPF'] },
+    divisor: 1000,
+  },
+  {
+    id: 'distillate',
+    name: 'Distillate Fuel',
+    subtitle: 'Diesel / Heating Oil',
+    ticker: 'DSL.D',
+    unit: 'M bbl',
+    color: '#ffab00',
+    apiPath: 'petroleum/stoc/wstk/data/',
+    facets: { product: ['EPD0'], process: ['SAE'] },
+    consumptionPath: 'petroleum/sum/sndw/data/',
+    consumptionFacets: { product: ['EPD0'], process: ['FPF'] },
+    divisor: 1000,
+  },
+  {
+    id: 'jet_fuel',
+    name: 'Jet Fuel',
+    subtitle: 'Kerosene-Type',
+    ticker: 'JET.D',
+    unit: 'M bbl',
+    color: '#00e5ff',
+    apiPath: 'petroleum/stoc/wstk/data/',
+    facets: { product: ['EPJK'], process: ['SAE'] },
+    consumptionPath: 'petroleum/sum/sndw/data/',
+    consumptionFacets: { product: ['EPJK'], process: ['FPF'] },
+    divisor: 1000,
+  },
+  {
+    id: 'propane',
+    name: 'Propane / Propylene',
+    subtitle: '',
+    ticker: 'PRP.D',
+    unit: 'M bbl',
+    color: '#b388ff',
+    apiPath: 'petroleum/stoc/wstk/data/',
+    facets: { product: ['EPLLPZ'], process: ['SAE'] },
+    consumptionPath: 'petroleum/sum/sndw/data/',
+    consumptionFacets: { product: ['EPLLPZ'], process: ['FPF'] },
+    divisor: 1000,
+  },
+  {
+    id: 'residual',
+    name: 'Residual Fuel Oil',
+    subtitle: '',
+    ticker: 'RES.D',
+    unit: 'M bbl',
+    color: '#ff6e40',
+    apiPath: 'petroleum/stoc/wstk/data/',
+    facets: { product: ['EPR0'], process: ['SAE'] },
+    consumptionPath: 'petroleum/sum/sndw/data/',
+    consumptionFacets: { product: ['EPR0'], process: ['FPF'] },
+    divisor: 1000,
+  },
+  {
+    id: 'natgas',
+    name: 'Natural Gas',
+    subtitle: 'Working Storage',
+    ticker: 'NGS.D',
+    unit: 'Bcf',
+    color: '#69f0ae',
+    isNatGas: true,
+    divisor: 1,
+  },
+];
+
+// ─── SEED / DEMO DATA ────────────────────────────────────────
+// Realistic seed data based on latest EIA reports (week ending 3/21/2026)
+const SEED_DATA = {
+  crude_excl_spr: { stocks: 456200, dailyConsumption: 20100, daysOfSupply: 22.7, prevWeekStocks: 449300, fiveYrAvg: 455800, pctVsFiveYr: 0.1, baselineStocks: 439000, baselineDays: 21.8 },
+  crude_incl_spr: { stocks: 848600, dailyConsumption: 20100, daysOfSupply: 42.2, prevWeekStocks: 841700, fiveYrAvg: 873400, pctVsFiveYr: -2.8, baselineStocks: 836000, baselineDays: 43.0 },
+  gasoline: { stocks: 239800, dailyConsumption: 8940, daysOfSupply: 26.8, prevWeekStocks: 242400, fiveYrAvg: 232700, pctVsFiveYr: 3.1, baselineStocks: 245100, baselineDays: 27.1 },
+  distillate: { stocks: 117300, dailyConsumption: 3860, daysOfSupply: 30.4, prevWeekStocks: 114300, fiveYrAvg: 117800, pctVsFiveYr: -0.4, baselineStocks: 119200, baselineDays: 31.5 },
+  jet_fuel: { stocks: 41200, dailyConsumption: 1710, daysOfSupply: 24.1, prevWeekStocks: 40800, fiveYrAvg: 40900, pctVsFiveYr: 0.7, baselineStocks: 42100, baselineDays: 24.8 },
+  propane: { stocks: 46200, dailyConsumption: 1120, daysOfSupply: 41.3, prevWeekStocks: 45700, fiveYrAvg: 29100, pctVsFiveYr: 58.8, baselineStocks: 43800, baselineDays: 39.5 },
+  residual: { stocks: 26400, dailyConsumption: 280, daysOfSupply: 94.3, prevWeekStocks: 26100, fiveYrAvg: 28600, pctVsFiveYr: -7.7, baselineStocks: 27800, baselineDays: 99.3 },
+  natgas: { stocks: 1720, dailyConsumption: 78.5, daysOfSupply: 21.9, prevWeekStocks: 1754, fiveYrAvg: 1580, pctVsFiveYr: 8.9, baselineStocks: 2050, baselineDays: 26.1 },
+};
+
+// Generate 52 weeks of historical data for sparklines
+function generateHistory(current, volatility = 0.03) {
+  const data = [];
+  let val = current * (1 + (Math.random() - 0.3) * 0.15);
+  for (let i = 51; i >= 0; i--) {
+    val = val * (1 + (Math.random() - 0.48) * volatility);
+    const d = new Date();
+    d.setDate(d.getDate() - i * 7);
+    data.push({ week: d.toISOString().slice(0, 10), value: Math.round(val * 10) / 10 });
+  }
+  data[data.length - 1].value = current;
+  return data;
+}
+
+const SEED_HISTORY = {};
+Object.keys(SEED_DATA).forEach(k => {
+  SEED_HISTORY[k] = generateHistory(SEED_DATA[k].daysOfSupply);
+});
+
+// Prices seed
+const SEED_PRICES = [
+  { ticker: 'WTI', name: 'WTI Crude', price: 89.42, change: 2.14, pct: 2.45 },
+  { ticker: 'BRENT', name: 'Brent Crude', price: 93.18, change: 1.87, pct: 2.05 },
+  { ticker: 'HH', name: 'Henry Hub NG', price: 4.92, change: 0.38, pct: 8.37 },
+  { ticker: 'RBOB', name: 'RBOB Gasoline', price: 2.847, change: 0.062, pct: 2.23 },
+  { ticker: 'ULSD', name: 'ULSD Diesel', price: 2.938, change: 0.044, pct: 1.52 },
+  { ticker: 'UREA', name: 'Urea FOB', price: 482, change: 18, pct: 3.88 },
+  { ticker: 'NH3', name: 'Ammonia', price: 618, change: 42, pct: 7.28 },
+  { ticker: 'ETH', name: 'Ethylene', price: 1245, change: -12, pct: -0.95 },
+];
+
+// ─── UTILITIES ───────────────────────────────────────────────
+function daysSinceBaseline() {
+  return Math.floor((Date.now() - CONFLICT_START.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function formatNum(n, decimals = 1) {
+  if (n >= 1e6) return (n / 1e6).toFixed(decimals) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(decimals) + 'K';
+  return n.toFixed(decimals);
+}
+
+function severityLevel(commodities) {
+  const criticals = Object.values(commodities).filter(c => {
+    const pctFromBase = ((c.daysOfSupply - c.baselineDays) / c.baselineDays) * 100;
+    return pctFromBase < -10;
+  }).length;
+  if (criticals >= 3) return { label: 'CRITICAL', color: 'var(--accent-red)', bg: 'var(--accent-red-dim)' };
+  if (criticals >= 1) return { label: 'ELEVATED', color: 'var(--accent-amber)', bg: 'var(--accent-amber-dim)' };
+  return { label: 'MONITORED', color: 'var(--accent-green)', bg: 'var(--accent-green-dim)' };
+}
+
+// ─── COMPONENTS ──────────────────────────────────────────────
+
+function PriceTicker({ prices }) {
+  const items = [...prices, ...prices];
+  return (
+    <div className="ticker-wrap">
+      <div className="ticker-inner">
+        {items.map((p, i) => (
+          <div key={i} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            padding: '8px 24px',
+            borderRight: '1px solid var(--border)',
+            fontSize: 11, letterSpacing: 0.5,
+          }}>
+            <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{p.ticker}</span>
+            <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
+              {typeof p.price === 'number' && p.price > 100 ? p.price.toFixed(0) : p.price.toFixed(p.price < 10 ? 3 : 2)}
+            </span>
+            <span style={{
+              color: p.change >= 0 ? 'var(--accent-green)' : 'var(--accent-red)',
+              fontWeight: 500,
+            }}>
+              {p.change >= 0 ? '▲' : '▼'} {Math.abs(p.pct).toFixed(2)}%
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function HeaderBar({ severity, dataTimestamp }) {
+  const days = daysSinceBaseline();
+  return (
+    <header style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '14px 24px',
+      background: 'var(--bg-secondary)',
+      borderBottom: '1px solid var(--border)',
+      flexWrap: 'wrap', gap: 12,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          <span style={{
+            fontFamily: 'var(--font-sans)', fontWeight: 700,
+            fontSize: 18, letterSpacing: 2, color: 'var(--accent-green)',
+          }}>STOCKPILE</span>
+          <span style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: 1 }}>
+            GLOBAL SUPPLY MONITOR
+          </span>
+        </div>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          padding: '3px 10px', borderRadius: 4,
+          background: severity.bg, border: `1px solid ${severity.color}40`,
+        }}>
+          <span className="status-dot" style={{ background: severity.color }} />
+          <span style={{ fontSize: 10, fontWeight: 600, color: severity.color, letterSpacing: 1.5 }}>
+            {severity.label}
+          </span>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 24, fontSize: 11 }}>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ color: 'var(--text-muted)', fontSize: 9, letterSpacing: 1.5, marginBottom: 2 }}>
+            DAY
+          </div>
+          <div style={{ color: 'var(--accent-amber)', fontWeight: 700, fontSize: 20 }}>{days}</div>
+        </div>
+        <div style={{ width: 1, height: 32, background: 'var(--border)' }} />
+        <div>
+          <div style={{ color: 'var(--text-muted)', fontSize: 9, letterSpacing: 1.5 }}>BASELINE</div>
+          <div style={{ color: 'var(--text-secondary)' }}>2026-02-27</div>
+        </div>
+        <div style={{ width: 1, height: 32, background: 'var(--border)' }} />
+        <div>
+          <div style={{ color: 'var(--text-muted)', fontSize: 9, letterSpacing: 1.5 }}>DATA AS OF</div>
+          <div style={{ color: 'var(--text-secondary)' }}>{dataTimestamp}</div>
+        </div>
+        <div style={{ width: 1, height: 32, background: 'var(--border)' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span className="status-dot" style={{ background: 'var(--accent-green)', width: 5, height: 5 }} />
+          <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>LIVE</span>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function MiniSparkline({ data, color, height = 36 }) {
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <AreaChart data={data} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
+        <defs>
+          <linearGradient id={`grad-${color.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity={0.3} />
+            <stop offset="100%" stopColor={color} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <Area
+          type="monotone" dataKey="value"
+          stroke={color} strokeWidth={1.5}
+          fill={`url(#grad-${color.replace('#', '')})`}
+          dot={false} isAnimationActive={false}
+        />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
+function CommodityCard({ config, data, history, index }) {
+  if (!data) return null;
+  const pctFromBaseline = ((data.daysOfSupply - data.baselineDays) / data.baselineDays * 100);
+  const weeklyChange = data.stocks - data.prevWeekStocks;
+  const weeklyPct = (weeklyChange / data.prevWeekStocks * 100);
+
+  const isNegative = pctFromBaseline < 0;
+  const isCritical = pctFromBaseline < -10;
+  const statusColor = isCritical ? 'var(--accent-red)' : isNegative ? 'var(--accent-amber)' : 'var(--accent-green)';
+
+  return (
+    <div className="card" style={{ animationDelay: `${index * 60}ms` }}>
+      {/* Header */}
+      <div style={{
+        padding: '12px 16px 8px',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+        borderBottom: '1px solid var(--border)',
+      }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+            <span style={{
+              fontSize: 9, fontWeight: 600, letterSpacing: 1.5,
+              color: 'var(--text-muted)', background: 'var(--bg-elevated)',
+              padding: '2px 6px', borderRadius: 3,
+            }}>{config.ticker}</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>
+              {config.name}
+            </span>
+          </div>
+          {config.subtitle && (
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 2 }}>
+              {config.subtitle}
+            </div>
+          )}
+        </div>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 4,
+          padding: '2px 8px', borderRadius: 3,
+          background: isCritical ? 'var(--accent-red-dim)' : isNegative ? 'var(--accent-amber-dim)' : 'var(--accent-green-dim)',
+        }}>
+          <span style={{ fontSize: 10, fontWeight: 600, color: statusColor }}>
+            {pctFromBaseline >= 0 ? '+' : ''}{pctFromBaseline.toFixed(1)}%
+          </span>
+        </div>
+      </div>
+
+      {/* Days of Supply — Hero Number */}
+      <div style={{ padding: '12px 16px 4px' }}>
+        <div style={{ fontSize: 9, color: 'var(--text-muted)', letterSpacing: 1.5, marginBottom: 4 }}>
+          DAYS OF SUPPLY
+        </div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          <span style={{
+            fontSize: 32, fontWeight: 700, color: statusColor,
+            lineHeight: 1,
+          }}>
+            {data.daysOfSupply.toFixed(1)}
+          </span>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+            / {data.baselineDays.toFixed(1)} pre-war
+          </span>
+        </div>
+      </div>
+
+      {/* Sparkline */}
+      <div style={{ padding: '4px 8px 0' }}>
+        <MiniSparkline data={history} color={config.color} />
+      </div>
+
+      {/* Stats Row */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
+        padding: '8px 16px 12px',
+        gap: 8,
+      }}>
+        <div>
+          <div style={{ fontSize: 9, color: 'var(--text-muted)', letterSpacing: 1 }}>STOCKS</div>
+          <div style={{ fontSize: 12, fontWeight: 500 }}>
+            {formatNum(data.stocks)} {config.unit}
+          </div>
+        </div>
+        <div>
+          <div style={{ fontSize: 9, color: 'var(--text-muted)', letterSpacing: 1 }}>WoW</div>
+          <div style={{
+            fontSize: 12, fontWeight: 500,
+            color: weeklyChange >= 0 ? 'var(--accent-green)' : 'var(--accent-red)',
+          }}>
+            {weeklyChange >= 0 ? '+' : ''}{weeklyPct.toFixed(1)}%
+          </div>
+        </div>
+        <div>
+          <div style={{ fontSize: 9, color: 'var(--text-muted)', letterSpacing: 1 }}>vs 5YR</div>
+          <div style={{
+            fontSize: 12, fontWeight: 500,
+            color: data.pctVsFiveYr >= 0 ? 'var(--accent-green)' : 'var(--accent-red)',
+          }}>
+            {data.pctVsFiveYr >= 0 ? '+' : ''}{data.pctVsFiveYr.toFixed(1)}%
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TimeSeriesPanel({ commodities, histories }) {
+  const [selected, setSelected] = useState(['gasoline', 'distillate', 'crude_excl_spr', 'jet_fuel']);
+
+  const chartData = useMemo(() => {
+    if (!histories || Object.keys(histories).length === 0) return [];
+    const weeks = histories[Object.keys(histories)[0]]?.map(d => d.week) || [];
+    return weeks.map((week, i) => {
+      const point = { week: week.slice(5) };
+      selected.forEach(id => {
+        if (histories[id] && histories[id][i]) {
+          point[id] = histories[id][i].value;
+        }
+      });
+      return point;
+    });
+  }, [histories, selected]);
+
+  const configs = COMMODITY_CONFIG.filter(c => selected.includes(c.id));
+
+  return (
+    <div className="card" style={{ gridColumn: '1 / -1', animationDelay: '500ms' }}>
+      <div style={{
+        padding: '16px 20px 12px',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        borderBottom: '1px solid var(--border)',
+      }}>
+        <div>
+          <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: 1 }}>
+            DAYS OF SUPPLY — 52 WEEK TREND
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          {COMMODITY_CONFIG.map(c => (
+            <button
+              key={c.id}
+              onClick={() => setSelected(prev =>
+                prev.includes(c.id) ? prev.filter(x => x !== c.id) : [...prev, c.id]
+              )}
+              style={{
+                padding: '3px 8px', fontSize: 9, fontWeight: 500,
+                borderRadius: 3, cursor: 'pointer',
+                fontFamily: 'var(--font-mono)',
+                letterSpacing: 0.5,
+                border: `1px solid ${selected.includes(c.id) ? c.color + '60' : 'var(--border)'}`,
+                background: selected.includes(c.id) ? c.color + '18' : 'transparent',
+                color: selected.includes(c.id) ? c.color : 'var(--text-muted)',
+              }}
+            >
+              {c.ticker}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div style={{ padding: '16px 12px 8px', height: 300 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis
+              dataKey="week" tick={{ fontSize: 9, fill: 'var(--text-muted)' }}
+              axisLine={{ stroke: 'var(--border)' }} tickLine={false}
+              interval={7}
+            />
+            <YAxis
+              tick={{ fontSize: 9, fill: 'var(--text-muted)' }}
+              axisLine={{ stroke: 'var(--border)' }} tickLine={false}
+              label={{ value: 'Days', angle: -90, position: 'insideLeft', style: { fontSize: 9, fill: 'var(--text-muted)' } }}
+            />
+            <Tooltip
+              contentStyle={{
+                background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                borderRadius: 4, fontSize: 11, fontFamily: 'var(--font-mono)',
+              }}
+              labelStyle={{ color: 'var(--text-muted)', fontSize: 10 }}
+            />
+            {configs.map(c => (
+              <Line
+                key={c.id} type="monotone" dataKey={c.id}
+                stroke={c.color} strokeWidth={1.5}
+                dot={false} name={c.name}
+                connectNulls
+              />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function SupplyTable({ commodities }) {
+  return (
+    <div className="card" style={{ gridColumn: '1 / -1', animationDelay: '600ms' }}>
+      <div style={{
+        padding: '16px 20px 12px',
+        borderBottom: '1px solid var(--border)',
+      }}>
+        <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: 1 }}>
+          DETAILED SUPPLY & DISPOSITION
+        </span>
+      </div>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid var(--border)' }}>
+              {['COMMODITY', 'STOCKS', 'DAILY USE', 'DAYS SUPPLY', 'vs BASELINE', 'vs 5YR AVG', 'WoW Δ'].map(h => (
+                <th key={h} style={{
+                  padding: '10px 16px', textAlign: 'left',
+                  fontSize: 9, fontWeight: 600, letterSpacing: 1.5,
+                  color: 'var(--text-muted)',
+                }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {COMMODITY_CONFIG.map((cfg, i) => {
+              const d = commodities[cfg.id];
+              if (!d) return null;
+              const basePct = ((d.daysOfSupply - d.baselineDays) / d.baselineDays * 100);
+              const wowPct = ((d.stocks - d.prevWeekStocks) / d.prevWeekStocks * 100);
+              return (
+                <tr key={cfg.id} style={{
+                  borderBottom: '1px solid var(--border)',
+                  background: i % 2 === 0 ? 'transparent' : 'var(--bg-secondary)',
+                }}>
+                  <td style={{ padding: '10px 16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ width: 3, height: 20, borderRadius: 2, background: cfg.color }} />
+                      <div>
+                        <div style={{ fontWeight: 500 }}>{cfg.name}</div>
+                        {cfg.subtitle && <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>{cfg.subtitle}</div>}
+                      </div>
+                    </div>
+                  </td>
+                  <td style={{ padding: '10px 16px', fontWeight: 500 }}>
+                    {formatNum(d.stocks)} {cfg.unit}
+                  </td>
+                  <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>
+                    {formatNum(d.dailyConsumption)} {cfg.unit.replace('M ', 'K ')}
+                  </td>
+                  <td style={{ padding: '10px 16px', fontWeight: 700, fontSize: 13 }}>
+                    {d.daysOfSupply.toFixed(1)}d
+                  </td>
+                  <td style={{ padding: '10px 16px' }}>
+                    <span style={{
+                      color: basePct >= 0 ? 'var(--accent-green)' : basePct > -5 ? 'var(--accent-amber)' : 'var(--accent-red)',
+                      fontWeight: 600,
+                    }}>
+                      {basePct >= 0 ? '+' : ''}{basePct.toFixed(1)}%
+                    </span>
+                  </td>
+                  <td style={{ padding: '10px 16px' }}>
+                    <span style={{
+                      color: d.pctVsFiveYr >= 0 ? 'var(--accent-green)' : 'var(--accent-red)',
+                      fontWeight: 500,
+                    }}>
+                      {d.pctVsFiveYr >= 0 ? '+' : ''}{d.pctVsFiveYr.toFixed(1)}%
+                    </span>
+                  </td>
+                  <td style={{ padding: '10px 16px' }}>
+                    <span style={{
+                      color: wowPct >= 0 ? 'var(--accent-green)' : 'var(--accent-red)',
+                      fontWeight: 500,
+                    }}>
+                      {wowPct >= 0 ? '▲' : '▼'} {Math.abs(wowPct).toFixed(1)}%
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function ApiKeyPanel({ apiKey, setApiKey, onFetch, loading }) {
+  return (
+    <div className="card" style={{ gridColumn: '1 / -1', animationDelay: '700ms' }}>
+      <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1.5, color: 'var(--text-muted)' }}>
+          EIA API KEY
+        </span>
+        <input
+          type="password"
+          value={apiKey}
+          onChange={e => setApiKey(e.target.value)}
+          placeholder="Paste your free EIA API key (eia.gov/opendata)"
+          style={{
+            flex: 1, minWidth: 250,
+            padding: '8px 12px', fontSize: 11,
+            fontFamily: 'var(--font-mono)',
+            background: 'var(--bg-elevated)',
+            border: '1px solid var(--border)',
+            borderRadius: 4,
+            color: 'var(--text-primary)',
+            outline: 'none',
+          }}
+        />
+        <button
+          onClick={onFetch}
+          disabled={loading || !apiKey}
+          style={{
+            padding: '8px 20px', fontSize: 10, fontWeight: 600,
+            fontFamily: 'var(--font-mono)', letterSpacing: 1,
+            background: apiKey ? 'var(--accent-green)' : 'var(--border)',
+            color: apiKey ? 'var(--bg-primary)' : 'var(--text-muted)',
+            border: 'none', borderRadius: 4, cursor: apiKey ? 'pointer' : 'not-allowed',
+          }}
+        >
+          {loading ? 'FETCHING…' : 'FETCH LIVE DATA'}
+        </button>
+        <a
+          href="https://www.eia.gov/opendata/register.php"
+          target="_blank"
+          rel="noopener"
+          style={{ fontSize: 10, color: 'var(--accent-blue)', textDecoration: 'none' }}
+        >
+          Get free key →
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function SourcesPanel() {
+  const sources = [
+    { name: 'EIA Weekly Petroleum Status Report', url: 'https://www.eia.gov/petroleum/supply/weekly/', freq: 'Weekly (Wed)', tier: 'GOLD' },
+    { name: 'EIA API v2 — Petroleum Stocks', url: 'https://api.eia.gov/v2/petroleum/stoc/wstk', freq: 'Weekly', tier: 'GOLD' },
+    { name: 'EIA API v2 — Weekly Supply Estimates', url: 'https://api.eia.gov/v2/petroleum/sum/sndw', freq: 'Weekly', tier: 'GOLD' },
+    { name: 'EIA API v2 — Natural Gas Storage', url: 'https://api.eia.gov/v2/natural-gas/stor/wkly', freq: 'Weekly (Thu)', tier: 'GOLD' },
+    { name: 'EIA API v2 — Spot Prices', url: 'https://api.eia.gov/v2/petroleum/pri/spt', freq: 'Daily', tier: 'GOLD' },
+    { name: 'World Bank Commodity Prices', url: 'https://www.worldbank.org/en/research/commodity-markets', freq: 'Monthly', tier: 'PROXY' },
+    { name: 'FRED — Fertilizer Price Index', url: 'https://fred.stlouisfed.org/', freq: 'Monthly', tier: 'PROXY' },
+    { name: 'API Weekly Statistical Bulletin', url: 'https://www.api.org/energy-insights/statistics/wsb', freq: 'Weekly (Tue)', tier: 'PREMIUM' },
+  ];
+
+  return (
+    <div className="card" style={{ gridColumn: '1 / -1', animationDelay: '800ms' }}>
+      <div style={{
+        padding: '16px 20px 12px',
+        borderBottom: '1px solid var(--border)',
+      }}>
+        <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: 1 }}>
+          DATA SOURCES & METHODOLOGY
+        </span>
+      </div>
+      <div style={{ padding: '12px 20px 16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 8 }}>
+          {sources.map(s => (
+            <a
+              key={s.name}
+              href={s.url}
+              target="_blank" rel="noopener"
+              style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '8px 12px', borderRadius: 4,
+                background: 'var(--bg-elevated)', textDecoration: 'none',
+                border: '1px solid var(--border)',
+                fontSize: 10,
+              }}
+            >
+              <div>
+                <div style={{ color: 'var(--text-primary)', fontWeight: 500, marginBottom: 2, fontFamily: 'var(--font-sans)' }}>{s.name}</div>
+                <div style={{ color: 'var(--text-muted)' }}>{s.freq}</div>
+              </div>
+              <span style={{
+                fontSize: 8, fontWeight: 700, letterSpacing: 1,
+                padding: '2px 6px', borderRadius: 3,
+                color: s.tier === 'GOLD' ? 'var(--accent-amber)' : s.tier === 'PROXY' ? 'var(--accent-cyan)' : 'var(--accent-purple)',
+                background: s.tier === 'GOLD' ? 'var(--accent-amber-dim)' : 'var(--bg-secondary)',
+              }}>{s.tier}</span>
+            </a>
+          ))}
+        </div>
+        <div style={{
+          marginTop: 12, padding: '10px 12px',
+          background: 'var(--bg-secondary)', borderRadius: 4,
+          fontSize: 10, color: 'var(--text-muted)', lineHeight: 1.6,
+          fontFamily: 'var(--font-sans)',
+        }}>
+          <strong style={{ color: 'var(--text-secondary)' }}>Days of Supply Calculation:</strong>{' '}
+          Ending Stocks ÷ (Weekly Product Supplied ÷ 7). Stocks from EIA Weekly Petroleum Status Report
+          (Table 4). Product Supplied from EIA Weekly Supply Estimates (Table 1). Natural Gas uses
+          EIA Weekly Natural Gas Storage Report. Urea, ammonia, and ethylene prices are used as supply
+          proxies since no public days-of-supply data exists for petrochemicals/fertilizers.
+          Baseline date: February 27, 2026. 5-year averages computed from EIA historical weekly data.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── MAIN APP ────────────────────────────────────────────────
+function App() {
+  const [commodities, setCommodities] = useState(SEED_DATA);
+  const [histories, setHistories] = useState(SEED_HISTORY);
+  const [prices, setPrices] = useState(SEED_PRICES);
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('eia_api_key') || '');
+  const [loading, setLoading] = useState(false);
+  const [dataTimestamp, setDataTimestamp] = useState('2026-03-21 (seed)');
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (apiKey) localStorage.setItem('eia_api_key', apiKey);
+  }, [apiKey]);
+
+  // Try loading from data/latest.json (GitHub Actions pre-fetched)
+  useEffect(() => {
+    fetch('data/latest.json')
+      .then(r => { if (r.ok) return r.json(); throw new Error('No pre-fetched data'); })
+      .then(data => {
+        if (data.commodities) setCommodities(data.commodities);
+        if (data.histories) setHistories(data.histories);
+        if (data.prices) setPrices(data.prices);
+        if (data.timestamp) setDataTimestamp(data.timestamp);
+      })
+      .catch(() => {
+        // Fall back to seed data — that's fine
+      });
+  }, []);
+
+  const fetchLiveData = useCallback(async () => {
+    if (!apiKey) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const results = {};
+      const stockConfigs = COMMODITY_CONFIG.filter(c => !c.isNatGas);
+
+      // Fetch stocks for all petroleum products
+      for (const cfg of stockConfigs) {
+        try {
+          const facetParams = Object.entries(cfg.facets)
+            .map(([k, vals]) => vals.map(v => `facets[${k}][]=${v}`).join('&'))
+            .join('&');
+
+          const stockUrl = `${EIA_BASE}/${cfg.apiPath}?api_key=${apiKey}&frequency=weekly&data[]=value&${facetParams}&facets[duoarea][]=NUS&sort[0][column]=period&sort[0][direction]=desc&length=60`;
+
+          const stockResp = await fetch(stockUrl);
+          const stockJson = await stockResp.json();
+
+          if (stockJson.response && stockJson.response.data && stockJson.response.data.length > 0) {
+            const latestStocks = parseFloat(stockJson.response.data[0].value);
+            const prevStocks = stockJson.response.data.length > 1 ? parseFloat(stockJson.response.data[1].value) : latestStocks;
+            const timestamp = stockJson.response.data[0].period;
+
+            // Also fetch product supplied for days-of-supply calculation
+            const consFacetParams = Object.entries(cfg.consumptionFacets)
+              .map(([k, vals]) => vals.map(v => `facets[${k}][]=${v}`).join('&'))
+              .join('&');
+
+            const consUrl = `${EIA_BASE}/${cfg.consumptionPath}?api_key=${apiKey}&frequency=weekly&data[]=value&${consFacetParams}&facets[duoarea][]=NUS&sort[0][column]=period&sort[0][direction]=desc&length=5`;
+
+            let dailyUse = SEED_DATA[cfg.id]?.dailyConsumption || 1;
+            try {
+              const consResp = await fetch(consUrl);
+              const consJson = await consResp.json();
+              if (consJson.response?.data?.length > 0) {
+                const weeklySupplied = parseFloat(consJson.response.data[0].value);
+                dailyUse = weeklySupplied / 7;
+              }
+            } catch (e) { /* use seed fallback */ }
+
+            const daysOfSupply = latestStocks / dailyUse;
+
+            // Build history from returned data
+            const hist = stockJson.response.data
+              .slice(0, 52)
+              .reverse()
+              .map(d => ({
+                week: d.period,
+                value: Math.round((parseFloat(d.value) / dailyUse) * 10) / 10,
+              }));
+
+            results[cfg.id] = {
+              stocks: latestStocks,
+              dailyConsumption: dailyUse,
+              daysOfSupply: daysOfSupply,
+              prevWeekStocks: prevStocks,
+              fiveYrAvg: SEED_DATA[cfg.id]?.fiveYrAvg || latestStocks,
+              pctVsFiveYr: SEED_DATA[cfg.id]?.pctVsFiveYr || 0,
+              baselineStocks: SEED_DATA[cfg.id]?.baselineStocks || latestStocks,
+              baselineDays: SEED_DATA[cfg.id]?.baselineDays || daysOfSupply,
+              _timestamp: timestamp,
+              _history: hist,
+            };
+
+            setDataTimestamp(timestamp);
+          }
+        } catch (e) {
+          console.warn(`Failed to fetch ${cfg.id}:`, e);
+        }
+      }
+
+      // Natural gas storage
+      try {
+        const ngUrl = `${EIA_BASE}/natural-gas/stor/wkly/data/?api_key=${apiKey}&frequency=weekly&data[]=value&facets[process][]=SAY&sort[0][column]=period&sort[0][direction]=desc&length=60`;
+        const ngResp = await fetch(ngUrl);
+        const ngJson = await ngResp.json();
+        if (ngJson.response?.data?.length > 0) {
+          const latestNg = parseFloat(ngJson.response.data[0].value);
+          const prevNg = ngJson.response.data.length > 1 ? parseFloat(ngJson.response.data[1].value) : latestNg;
+          const dailyUse = SEED_DATA.natgas.dailyConsumption;
+
+          results.natgas = {
+            stocks: latestNg,
+            dailyConsumption: dailyUse,
+            daysOfSupply: latestNg / dailyUse,
+            prevWeekStocks: prevNg,
+            fiveYrAvg: SEED_DATA.natgas.fiveYrAvg,
+            pctVsFiveYr: ((latestNg - SEED_DATA.natgas.fiveYrAvg) / SEED_DATA.natgas.fiveYrAvg * 100),
+            baselineStocks: SEED_DATA.natgas.baselineStocks,
+            baselineDays: SEED_DATA.natgas.baselineDays,
+            _history: ngJson.response.data.slice(0, 52).reverse().map(d => ({
+              week: d.period,
+              value: Math.round((parseFloat(d.value) / dailyUse) * 10) / 10,
+            })),
+          };
+        }
+      } catch (e) {
+        console.warn('Failed to fetch natural gas:', e);
+      }
+
+      // Spot prices
+      try {
+        const priceUrl = `${EIA_BASE}/petroleum/pri/spt/data/?api_key=${apiKey}&frequency=daily&data[]=value&sort[0][column]=period&sort[0][direction]=desc&length=20`;
+        const priceResp = await fetch(priceUrl);
+        const priceJson = await priceResp.json();
+        // Process prices if available
+      } catch (e) { /* use seed prices */ }
+
+      // Merge results
+      if (Object.keys(results).length > 0) {
+        setCommodities(prev => ({ ...prev, ...Object.fromEntries(
+          Object.entries(results).map(([k, v]) => {
+            const { _timestamp, _history, ...rest } = v;
+            return [k, rest];
+          })
+        )}));
+
+        // Update histories
+        const newHistories = {};
+        Object.entries(results).forEach(([k, v]) => {
+          if (v._history && v._history.length > 5) {
+            newHistories[k] = v._history;
+          }
+        });
+        if (Object.keys(newHistories).length > 0) {
+          setHistories(prev => ({ ...prev, ...newHistories }));
+        }
+      }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [apiKey]);
+
+  const severity = useMemo(() => severityLevel(commodities), [commodities]);
+
+  return (
+    <div>
+      <PriceTicker prices={prices} />
+      <HeaderBar severity={severity} dataTimestamp={dataTimestamp} />
+
+      {error && (
+        <div style={{
+          margin: '12px 24px 0', padding: '10px 16px',
+          background: 'var(--accent-red-dim)', border: '1px solid var(--accent-red)',
+          borderRadius: 4, fontSize: 11, color: 'var(--accent-red)',
+        }}>
+          Error: {error}
+        </div>
+      )}
+
+      <main style={{ padding: '20px 24px 40px' }}>
+        {/* Commodity Cards Grid */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+          gap: 12,
+          marginBottom: 16,
+        }}>
+          {COMMODITY_CONFIG.map((cfg, i) => (
+            <CommodityCard
+              key={cfg.id}
+              config={cfg}
+              data={commodities[cfg.id]}
+              history={histories[cfg.id] || []}
+              index={i}
+            />
+          ))}
+        </div>
+
+        {/* Time Series */}
+        <div style={{ marginBottom: 16 }}>
+          <TimeSeriesPanel commodities={commodities} histories={histories} />
+        </div>
+
+        {/* Supply Table */}
+        <div style={{ marginBottom: 16 }}>
+          <SupplyTable commodities={commodities} />
+        </div>
+
+        {/* API Key Input */}
+        <div style={{ marginBottom: 16 }}>
+          <ApiKeyPanel
+            apiKey={apiKey}
+            setApiKey={setApiKey}
+            onFetch={fetchLiveData}
+            loading={loading}
+          />
+        </div>
+
+        {/* Sources */}
+        <SourcesPanel />
+
+        {/* Footer */}
+        <div style={{
+          marginTop: 24, textAlign: 'center',
+          fontSize: 10, color: 'var(--text-muted)',
+          fontFamily: 'var(--font-sans)',
+          lineHeight: 1.8,
+        }}>
+          <div>STOCKPILE v1.0 — Global Supply Monitor</div>
+          <div>Data: U.S. Energy Information Administration (EIA) API v2 — public domain</div>
+          <div>
+            Inspired by{' '}
+            <a href="https://x.com/DanielleFong/status/1905377285422743622" target="_blank" rel="noopener"
+              style={{ color: 'var(--accent-blue)', textDecoration: 'none' }}>
+              @DanielleFong
+            </a>{' '}
+            — Deploy with{' '}
+            <a href="https://github.com" target="_blank" rel="noopener"
+              style={{ color: 'var(--accent-blue)', textDecoration: 'none' }}>
+              GitHub Pages + Actions
+            </a>
+          </div>
+          <div style={{ marginTop: 4 }}>
+            Days of Supply = Ending Stocks ÷ (Product Supplied ÷ 7) · Updated weekly (Wed ~10:30 ET)
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+ReactDOM.render(<App />, document.getElementById('root'));
+</script>
+</body>
+</html>

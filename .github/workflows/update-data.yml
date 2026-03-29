@@ -1,0 +1,47 @@
+name: Update Supply Data
+
+on:
+  schedule:
+    # Run twice daily:
+    # 1) 16:00 UTC (after EIA WPSR release ~15:30 UTC / 10:30 ET on Wednesdays)
+    # 2) 00:00 UTC (overnight refresh)
+    - cron: '0 0 * * *'
+    - cron: '0 16 * * 3'    # Wednesdays at 4pm UTC (after EIA release)
+    - cron: '0 18 * * 4'    # Thursdays at 6pm UTC (after NG storage release)
+  workflow_dispatch: {}       # Allow manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  fetch-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Fetch EIA data
+        env:
+          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+        run: node fetch-data.js
+
+      - name: Check for changes
+        id: check
+        run: |
+          git diff --quiet data/latest.json && echo "changed=false" >> $GITHUB_OUTPUT || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Commit and push updated data
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/latest.json
+          git commit -m "📊 Update supply data — $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push
