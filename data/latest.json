@@ -1,6 +1,6 @@
 {
   "timestamp": "2026-03-20",
-  "fetchedAt": "2026-03-29T17:15:07.363Z",
+  "fetchedAt": "2026-03-29T17:27:22.074Z",
   "baselineDate": "2026-02-27",
   "commodities": {
     "crude_excl_spr": {
@@ -83,7 +83,7 @@
       "fiveYrAvg": 24199,
       "pctVsFiveYr": 4.5,
       "baselineStocks": 24725,
-      "baselineDays": 2472.5,
+      "baselineDays": 79.2,
       "baselinePeriod": "2026-02-27",
       "period": "2026-03-20"
     },
