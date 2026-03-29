@@ -6,7 +6,7 @@ Real-time dashboard tracking **days of remaining supply** for petroleum products
 
 ## Live Dashboard
 
-**→ [your-username.github.io/supply-dashboard](https://your-username.github.io/supply-dashboard)**
+**→ [thecobb.github.io/supply-dashboard](https://thecobb.github.io/supply-dashboard/)**
 
 ## What It Tracks
 
