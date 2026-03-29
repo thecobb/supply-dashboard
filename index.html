@@ -7,6 +7,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.8.1/prop-types.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.15.0/Recharts.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -818,10 +819,14 @@ function App() {
     fetch('data/latest.json')
       .then(r => { if (r.ok) return r.json(); throw new Error('No pre-fetched data'); })
       .then(data => {
-        if (data.commodities) setCommodities(data.commodities);
-        if (data.histories) setHistories(data.histories);
-        if (data.prices) setPrices(data.prices);
-        if (data.timestamp) setDataTimestamp(data.timestamp);
+        const hasCommodityObject = data?.commodities && !Array.isArray(data.commodities) && Object.keys(data.commodities).length > 0;
+        const hasHistoryObject = data?.histories && !Array.isArray(data.histories) && Object.keys(data.histories).length > 0;
+        const hasPricesArray = Array.isArray(data?.prices) && data.prices.length > 0;
+
+        if (hasCommodityObject) setCommodities(data.commodities);
+        if (hasHistoryObject) setHistories(data.histories);
+        if (hasPricesArray) setPrices(data.prices);
+        if (typeof data?.timestamp === 'string' && data.timestamp.trim()) setDataTimestamp(data.timestamp);
       })
       .catch(() => {
         // Fall back to seed data — that's fine
@@ -1055,7 +1060,12 @@ function App() {
   );
 }
 
-ReactDOM.render(<App />, document.getElementById('root'));
+const rootEl = document.getElementById('root');
+if (ReactDOM.createRoot) {
+  ReactDOM.createRoot(rootEl).render(<App />);
+} else {
+  ReactDOM.render(<App />, rootEl);
+}
 </script>
 </body>
 </html>
