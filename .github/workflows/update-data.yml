@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - fetch-data.js
+      - .github/workflows/update-data.yml
   schedule:
     # Run twice daily:
     # 1) 16:00 UTC (after EIA WPSR release ~15:30 UTC / 10:30 ET on Wednesdays)
