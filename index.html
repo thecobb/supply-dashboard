@@ -816,7 +816,8 @@ function App() {
 
   // Try loading from data/latest.json (GitHub Actions pre-fetched)
   useEffect(() => {
-    fetch('data/latest.json')
+    const latestUrl = `data/latest.json?ts=${Date.now()}`;
+    fetch(latestUrl, { cache: 'no-store' })
       .then(r => { if (r.ok) return r.json(); throw new Error('No pre-fetched data'); })
       .then(data => {
         const hasCommodityObject = data?.commodities && !Array.isArray(data.commodities) && Object.keys(data.commodities).length > 0;
