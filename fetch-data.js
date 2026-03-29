@@ -71,11 +71,17 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 function get(url, extraHeaders = {}) {
   return new Promise((resolve, reject) => {
-    https.get(url, {headers:{'Accept':'application/json', ...extraHeaders}}, res => {
+    const req = https.get(url, {headers:{'Accept':'application/json', ...extraHeaders}}, res => {
       let d = '';
       res.on('data', c => d += c);
       res.on('end', () => { try { resolve(JSON.parse(d)); } catch(e) { reject(e); }});
-    }).on('error', reject);
+    });
+
+    req.setTimeout(20000, () => {
+      req.destroy(new Error(`Request timeout: ${url}`));
+    });
+
+    req.on('error', reject);
   });
 }
 
