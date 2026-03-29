@@ -57,6 +57,15 @@ const SERIES = [
   },
 ];
 
+const PRICE_SERIES = [
+  { ticker:'WTI',   name:'WTI Crude',     sid:'PET.RWTC.D' },
+  { ticker:'BRENT', name:'Brent Crude',   sid:'PET.RBRTE.D' },
+  { ticker:'HH',    name:'Henry Hub NG',  sid:'NG.RNGWHHD.D' },
+  { ticker:'RBOB',  name:'RBOB Gasoline', sid:'PET.EER_EPMRU_PF4_RGC_DPG.D' },
+  { ticker:'ULSD',  name:'ULSD Diesel',   sid:'PET.EER_EPD2DXL0_PF4_RGC_DPG.D' },
+  { ticker:'PROPN', name:'Propane',       sid:'PET.EER_EPLLPA_PF4_RGC_DPG.D' },
+];
+
 // ─── helpers ─────────────────────────────────────────────────
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -232,11 +241,53 @@ async function main() {
     console.log(`✓ natgas             ${(cur/dailyUse).toFixed(1).padStart(5)}d  ${cur} Bcf`);
   } catch(e) { console.error(`✗ natgas: ${e.message}`); }
 
+  // spot prices (daily)
+  const prices = [];
+  try {
+    console.log('\n→ Fetching spot prices...');
+    for (const p of PRICE_SERIES) {
+      try {
+        const data = await pull(p.sid, 5);
+        await sleep(100);
+
+        if (data.length >= 2) {
+          const curr = data[0].value;
+          const prev = data[1].value;
+          const chg = curr - prev;
+          prices.push({
+            ticker: p.ticker,
+            name: p.name,
+            price: curr,
+            change: Math.round(chg * 1000) / 1000,
+            pct: Math.round((chg / prev) * 10000) / 100,
+            seriesId: p.sid,
+          });
+          console.log(`  ✓ ${p.ticker}: ${curr} (${chg >= 0 ? '+' : ''}${chg.toFixed(3)})`);
+        } else if (data.length === 1) {
+          prices.push({
+            ticker: p.ticker,
+            name: p.name,
+            price: data[0].value,
+            change: 0,
+            pct: 0,
+            seriesId: p.sid,
+          });
+          console.log(`  ✓ ${p.ticker}: ${data[0].value} (single point)`);
+        }
+      } catch (e) {
+        console.warn(`  ⚠ ${p.ticker}: ${e.message}`);
+      }
+    }
+  } catch (e) {
+    console.warn(`⚠ price fetch step failed: ${e.message}`);
+  }
+
   // write
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR,{recursive:true});
   const out = {
     timestamp: latestPeriod, fetchedAt: new Date().toISOString(),
     baselineDate: BASELINE, commodities: results, histories,
+    prices: prices.length > 0 ? prices : undefined,
     meta: {
       source:'EIA API v2 via /v2/seriesid/',
       formula:'Crude: Stocks(kb) ÷ 4-week avg RefineryNetInput(kb/d); Products: Stocks(kb) ÷ ProductSupplied(kb/d)',

@@ -259,16 +259,17 @@ Object.keys(SEED_DATA).forEach(k => {
   SEED_HISTORY[k] = generateHistory(SEED_DATA[k].daysOfSupply);
 });
 
-// Prices seed
+// Prices seed (fallbacks). Items with seriesId are refreshed from EIA live feed.
 const SEED_PRICES = [
-  { ticker: 'WTI', name: 'WTI Crude', price: 89.42, change: 2.14, pct: 2.45 },
-  { ticker: 'BRENT', name: 'Brent Crude', price: 93.18, change: 1.87, pct: 2.05 },
-  { ticker: 'HH', name: 'Henry Hub NG', price: 4.92, change: 0.38, pct: 8.37 },
-  { ticker: 'RBOB', name: 'RBOB Gasoline', price: 2.847, change: 0.062, pct: 2.23 },
-  { ticker: 'ULSD', name: 'ULSD Diesel', price: 2.938, change: 0.044, pct: 1.52 },
-  { ticker: 'UREA', name: 'Urea FOB', price: 482, change: 18, pct: 3.88 },
-  { ticker: 'NH3', name: 'Ammonia', price: 618, change: 42, pct: 7.28 },
-  { ticker: 'ETH', name: 'Ethylene', price: 1245, change: -12, pct: -0.95 },
+  { ticker: 'WTI', name: 'WTI Crude', price: 89.42, change: 2.14, pct: 2.45, seriesId: 'PET.RWTC.D' },
+  { ticker: 'BRENT', name: 'Brent Crude', price: 93.18, change: 1.87, pct: 2.05, seriesId: 'PET.RBRTE.D' },
+  { ticker: 'HH', name: 'Henry Hub NG', price: 4.92, change: 0.38, pct: 8.37, seriesId: 'NG.RNGWHHD.D' },
+  { ticker: 'RBOB', name: 'RBOB Gasoline', price: 2.847, change: 0.062, pct: 2.23, seriesId: 'PET.EER_EPMRU_PF4_RGC_DPG.D' },
+  { ticker: 'ULSD', name: 'ULSD Diesel', price: 2.938, change: 0.044, pct: 1.52, seriesId: 'PET.EER_EPD2DXL0_PF4_RGC_DPG.D' },
+  { ticker: 'PROPN', name: 'Propane', price: 0.892, change: 0.018, pct: 2.06, seriesId: 'PET.EER_EPLLPA_PF4_RGC_DPG.D' },
+  { ticker: 'UREA', name: 'Urea FOB', price: 482, change: 18, pct: 3.88, seriesId: null },
+  { ticker: 'NH3', name: 'Ammonia', price: 618, change: 42, pct: 7.28, seriesId: null },
+  { ticker: 'ETH', name: 'Ethylene', price: 1245, change: -12, pct: -0.95, seriesId: null },
 ];
 
 // ─── UTILITIES ───────────────────────────────────────────────
@@ -1076,6 +1077,41 @@ function App() {
           week: d.period, value: Math.round((d.value/dailyUse)*10)/10
         }));
       } catch (e) { console.warn('NG failed:', e.message); }
+
+      // Live spot prices (fallback to seed values if any series fails)
+      const livePrices = [];
+      for (const seed of SEED_PRICES) {
+        if (!seed.seriesId) {
+          livePrices.push(seed);
+          continue;
+        }
+
+        try {
+          const priceData = await fetchEIASeries(seed.seriesId, apiKey, 5);
+          if (priceData.length >= 2) {
+            const curr = priceData[0].value;
+            const prev = priceData[1].value;
+            const change = curr - prev;
+            livePrices.push({
+              ...seed,
+              price: curr,
+              change: Math.round(change * 1000) / 1000,
+              pct: Math.round((change / prev) * 10000) / 100,
+            });
+          } else if (priceData.length === 1) {
+            livePrices.push({ ...seed, price: priceData[0].value, change: 0, pct: 0 });
+          } else {
+            livePrices.push(seed);
+          }
+        } catch (e) {
+          console.warn(`Price fetch failed for ${seed.ticker}:`, e.message);
+          livePrices.push(seed);
+        }
+      }
+
+      if (livePrices.length > 0) {
+        setPrices(livePrices);
+      }
 
       if (Object.keys(results).length > 0) {
         setCommodities(prev => ({ ...prev, ...results }));
