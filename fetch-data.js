@@ -79,6 +79,45 @@ function nearest(arr, date) {
   );
 }
 
+function median(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  if (!sorted.length) return null;
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 0) return (sorted[mid - 1] + sorted[mid]) / 2;
+  return sorted[mid];
+}
+
+function robustBaselineFromSeries(stocks, cons, baselineDate, currentDays) {
+  const cMap = Object.fromEntries(cons.map(d => [d.period, d.value]));
+  const baselineStockPoint = nearest(stocks, baselineDate);
+  const baselineCons = cMap[baselineStockPoint.period];
+
+  const recentDays = stocks.slice(0, 26)
+    .map(d => {
+      const c = cMap[d.period];
+      if (!c || c <= 0) return null;
+      return d.value / c;
+    })
+    .filter(v => Number.isFinite(v));
+
+  const recentMedian = median(recentDays);
+
+  let baselineDays = (baselineCons && baselineCons > 0)
+    ? baselineStockPoint.value / baselineCons
+    : (recentMedian || currentDays);
+
+  // Guard against outlier baseline points caused by tiny denominator glitches.
+  if (recentMedian && (baselineDays > recentMedian * 4 || baselineDays < recentMedian * 0.25)) {
+    baselineDays = recentMedian;
+  }
+
+  return {
+    baselineStocks: baselineStockPoint.value,
+    baselinePeriod: baselineStockPoint.period,
+    baselineDays,
+  };
+}
+
 // ─── main ────────────────────────────────────────────────────
 async function main() {
   console.log('STOCKPILE fetcher v2 — legacy series IDs, correct units');
@@ -101,11 +140,6 @@ async function main() {
       // *** THE FIX: no ÷7 — product supplied is already kb/d ***
       const days = curS / curC;
 
-      // baseline from actual data
-      const bS = nearest(stocks, BASELINE);
-      const bC = nearest(cons,   BASELINE);
-      const bDays = bS.value / bC.value;
-
       // 2-year average as proxy for 5-year
       const avgS = stocks.reduce((a,d)=>a+d.value,0) / stocks.length;
 
@@ -116,6 +150,9 @@ async function main() {
         value: Math.round((d.value / (cMap[d.period]||curC)) * 10) / 10,
       }));
 
+      // baseline from actual data, with outlier guard
+      const baseline = robustBaselineFromSeries(stocks, cons, BASELINE, days);
+
       results[s.id] = {
         stocks: curS,
         dailyConsumption: Math.round(curC),
@@ -123,14 +160,14 @@ async function main() {
         prevWeekStocks: prvS,
         fiveYrAvg: Math.round(avgS),
         pctVsFiveYr: Math.round(((curS-avgS)/avgS)*1000)/10,
-        baselineStocks: bS.value,
-        baselineDays: Math.round(bDays*10)/10,
-        baselinePeriod: bS.period,
+        baselineStocks: baseline.baselineStocks,
+        baselineDays: Math.round(baseline.baselineDays*10)/10,
+        baselinePeriod: baseline.baselinePeriod,
         period: per,
       };
       histories[s.id] = hist;
 
-      console.log(`✓ ${s.id.padEnd(18)} ${days.toFixed(1).padStart(5)}d  stk=${curS.toLocaleString()} kb  cons=${curC.toLocaleString()} kb/d  base=${bDays.toFixed(1)}d`);
+      console.log(`✓ ${s.id.padEnd(18)} ${days.toFixed(1).padStart(5)}d  stk=${curS.toLocaleString()} kb  cons=${curC.toLocaleString()} kb/d  base=${baseline.baselineDays.toFixed(1)}d`);
     } catch(e) {
       console.error(`✗ ${s.id}: ${e.message}`);
     }
