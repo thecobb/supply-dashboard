@@ -8,7 +8,10 @@ on:
       - fetch-data.js
       - .github/workflows/update-data.yml
   schedule:
-    # Run twice daily:
+    # Near-real-time ticker refresh
+    - cron: '*/30 * * * *' # every 30 minutes
+
+    # Weekly inventory cadence refreshes:
     # 1) 16:00 UTC (after EIA WPSR release ~15:30 UTC / 10:30 ET on Wednesdays)
     # 2) 00:00 UTC (overnight refresh)
     - cron: '0 0 * * *'
@@ -33,7 +36,7 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Fetch EIA data
+      - name: Fetch supply + ticker data
         env:
           EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
         run: node fetch-data.js

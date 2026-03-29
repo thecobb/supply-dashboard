@@ -58,20 +58,20 @@ const SERIES = [
 ];
 
 const PRICE_SERIES = [
-  { ticker:'WTI',   name:'WTI Crude',     sid:'PET.RWTC.D' },
-  { ticker:'BRENT', name:'Brent Crude',   sid:'PET.RBRTE.D' },
-  { ticker:'HH',    name:'Henry Hub NG',  sid:'NG.RNGWHHD.D' },
-  { ticker:'RBOB',  name:'RBOB Gasoline', sid:'PET.EER_EPMRU_PF4_RGC_DPG.D' },
-  { ticker:'ULSD',  name:'ULSD Diesel',   sid:'PET.EER_EPD2DXL0_PF4_RGC_DPG.D' },
-  { ticker:'PROPN', name:'Propane',       sid:'PET.EER_EPLLPA_PF4_RGC_DPG.D' },
+  { ticker:'WTI',   name:'WTI Crude',     yahoo:'CL=F', eia:'PET.RWTC.D' },
+  { ticker:'BRENT', name:'Brent Crude',   yahoo:'BZ=F', eia:'PET.RBRTE.D' },
+  { ticker:'HH',    name:'Henry Hub NG',  yahoo:'NG=F', eia:'NG.RNGWHHD.D' },
+  { ticker:'RBOB',  name:'RBOB Gasoline', yahoo:'RB=F', eia:'PET.EER_EPMRU_PF4_RGC_DPG.D' },
+  { ticker:'ULSD',  name:'ULSD Diesel',   yahoo:'HO=F', eia:'PET.EER_EPD2DXL0_PF4_RGC_DPG.D' },
+  { ticker:'PROPN', name:'Propane',       yahoo:'B0=F', eia:'PET.EER_EPLLPA_PF4_RGC_DPG.D' },
 ];
 
 // ─── helpers ─────────────────────────────────────────────────
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-function get(url) {
+function get(url, extraHeaders = {}) {
   return new Promise((resolve, reject) => {
-    https.get(url, {headers:{'Accept':'application/json'}}, res => {
+    https.get(url, {headers:{'Accept':'application/json', ...extraHeaders}}, res => {
       let d = '';
       res.on('data', c => d += c);
       res.on('end', () => { try { resolve(JSON.parse(d)); } catch(e) { reject(e); }});
@@ -106,6 +106,35 @@ function nearest(arr, date) {
     Math.abs(new Date(d.period).getTime() - t) <
     Math.abs(new Date(best.period).getTime() - t) ? d : best
   );
+}
+
+function round3(n) {
+  return Math.round(n * 1000) / 1000;
+}
+
+async function pullYahooFutures(symbol) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=5m&range=1d`;
+  const j = await get(url, { 'User-Agent': 'Mozilla/5.0' });
+  const result = j?.chart?.result?.[0];
+  if (!result) throw new Error(`Empty yahoo chart: ${symbol}`);
+
+  const closes = (result?.indicators?.quote?.[0]?.close || [])
+    .map(v => Number(v))
+    .filter(v => Number.isFinite(v));
+
+  const meta = result.meta || {};
+  let price = Number(meta.regularMarketPrice);
+  if (!Number.isFinite(price) && closes.length) price = closes[closes.length - 1];
+  if (!Number.isFinite(price)) throw new Error(`No price from yahoo: ${symbol}`);
+
+  let prev = Number(meta.previousClose);
+  if (!Number.isFinite(prev) || prev <= 0) prev = Number(meta.chartPreviousClose);
+  if ((!Number.isFinite(prev) || prev <= 0) && closes.length >= 2) prev = closes[closes.length - 2];
+
+  const change = (Number.isFinite(prev) && prev > 0) ? (price - prev) : 0;
+  const pct = (Number.isFinite(prev) && prev > 0) ? ((change / prev) * 100) : 0;
+
+  return { price, change, pct };
 }
 
 function median(values) {
@@ -244,38 +273,58 @@ async function main() {
   // spot prices (daily)
   const prices = [];
   try {
-    console.log('\n→ Fetching spot prices...');
+    console.log('\n→ Fetching spot prices (Yahoo futures primary, EIA fallback)...');
     for (const p of PRICE_SERIES) {
       try {
-        const data = await pull(p.sid, 5);
-        await sleep(100);
-
-        if (data.length >= 2) {
-          const curr = data[0].value;
-          const prev = data[1].value;
-          const chg = curr - prev;
-          prices.push({
-            ticker: p.ticker,
-            name: p.name,
-            price: curr,
-            change: Math.round(chg * 1000) / 1000,
-            pct: Math.round((chg / prev) * 10000) / 100,
-            seriesId: p.sid,
-          });
-          console.log(`  ✓ ${p.ticker}: ${curr} (${chg >= 0 ? '+' : ''}${chg.toFixed(3)})`);
-        } else if (data.length === 1) {
-          prices.push({
-            ticker: p.ticker,
-            name: p.name,
-            price: data[0].value,
-            change: 0,
-            pct: 0,
-            seriesId: p.sid,
-          });
-          console.log(`  ✓ ${p.ticker}: ${data[0].value} (single point)`);
+        // 1) Primary: free near-real-time futures from Yahoo chart endpoint.
+        const y = await pullYahooFutures(p.yahoo);
+        prices.push({
+          ticker: p.ticker,
+          name: p.name,
+          price: y.price,
+          change: round3(y.change),
+          pct: Math.round(y.pct * 100) / 100,
+          source: 'yahoo-futures',
+          symbol: p.yahoo,
+          seriesId: p.eia,
+        });
+        console.log(`  ✓ ${p.ticker}: ${y.price} (${y.change >= 0 ? '+' : ''}${round3(y.change)}) [yahoo]`);
+      } catch (yErr) {
+        // 2) Fallback: EIA daily spot.
+        try {
+          const data = await pull(p.eia, 5);
+          await sleep(100);
+          if (data.length >= 2) {
+            const curr = data[0].value;
+            const prev = data[1].value;
+            const chg = curr - prev;
+            prices.push({
+              ticker: p.ticker,
+              name: p.name,
+              price: curr,
+              change: round3(chg),
+              pct: Math.round((chg / prev) * 10000) / 100,
+              source: 'eia-spot-fallback',
+              symbol: p.yahoo,
+              seriesId: p.eia,
+            });
+            console.log(`  ✓ ${p.ticker}: ${curr} (${chg >= 0 ? '+' : ''}${round3(chg)}) [eia fallback]`);
+          } else if (data.length === 1) {
+            prices.push({
+              ticker: p.ticker,
+              name: p.name,
+              price: data[0].value,
+              change: 0,
+              pct: 0,
+              source: 'eia-spot-fallback',
+              symbol: p.yahoo,
+              seriesId: p.eia,
+            });
+            console.log(`  ✓ ${p.ticker}: ${data[0].value} (single point) [eia fallback]`);
+          }
+        } catch (eErr) {
+          console.warn(`  ⚠ ${p.ticker}: yahoo=${yErr.message} | eia=${eErr.message}`);
         }
-      } catch (e) {
-        console.warn(`  ⚠ ${p.ticker}: ${e.message}`);
       }
     }
   } catch (e) {

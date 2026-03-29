@@ -19,7 +19,7 @@ Real-time dashboard tracking **days of remaining supply** for petroleum products
 | Propane/Propylene | EIA WPSR | Weekly | Days of supply, stocks |
 | Residual Fuel Oil | EIA WPSR | Weekly | Days of supply, stocks |
 | Natural Gas (storage) | EIA Weekly NG | Weekly | Days of supply, Bcf in storage |
-| Commodity prices (WTI, Brent, Henry Hub, Urea, etc.) | EIA Spot + proxies | Daily/Weekly | Price ticker |
+| Commodity prices (WTI, Brent, Henry Hub, RBOB, ULSD, Propane) | Yahoo Finance futures (fallback: EIA Spot) + proxies | ~30 min | Price ticker |
 
 ### Days of Supply Formula
 ```
@@ -73,6 +73,7 @@ Your dashboard is now live at `https://YOUR_USERNAME.github.io/supply-dashboard/
 ### Auto-Updates
 
 The GitHub Actions workflow runs automatically:
+- **Every 30 minutes** for ticker refresh
 - **Daily** at midnight UTC
 - **Wednesdays** at 4 PM UTC (after EIA petroleum data release)
 - **Thursdays** at 6 PM UTC (after EIA natural gas storage release)
