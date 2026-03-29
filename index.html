@@ -824,8 +824,8 @@ function App() {
         const hasHistoryObject = data?.histories && !Array.isArray(data.histories) && Object.keys(data.histories).length > 0;
         const hasPricesArray = Array.isArray(data?.prices) && data.prices.length > 0;
 
-        if (hasCommodityObject) setCommodities(data.commodities);
-        if (hasHistoryObject) setHistories(data.histories);
+        if (hasCommodityObject) setCommodities(prev => ({ ...prev, ...data.commodities }));
+        if (hasHistoryObject) setHistories(prev => ({ ...prev, ...data.histories }));
         if (hasPricesArray) setPrices(data.prices);
         if (typeof data?.timestamp === 'string' && data.timestamp.trim()) setDataTimestamp(data.timestamp);
       })
