@@ -971,6 +971,11 @@ function App() {
     }
   }, [apiKey]);
 
+  useEffect(() => {
+    // If the user already saved an API key in localStorage, fetch live data automatically.
+    if (apiKey) fetchLiveData();
+  }, [apiKey, fetchLiveData]);
+
   const severity = useMemo(() => severityLevel(commodities), [commodities]);
 
   return (
