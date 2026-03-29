@@ -1,6 +1,6 @@
 {
   "timestamp": "2026-03-20",
-  "fetchedAt": "2026-03-29T19:50:48.278Z",
+  "fetchedAt": "2026-03-29T19:57:36.699Z",
   "baselineDate": "2026-02-27",
   "commodities": {
     "crude_excl_spr": {
@@ -1344,31 +1344,45 @@
     "seriesIds": {
       "crude_excl_spr": {
         "stock": "PET.WCESTUS1.W",
-        "cons": "PET.WCRRIUS2.W"
+        "cons": "PET.WCRRIUS2.W",
+        "stockPath": null,
+        "consPath": null
       },
       "crude_incl_spr": {
         "stock": "PET.WCRSTUS1.W",
-        "cons": "PET.WCRRIUS2.W"
+        "cons": "PET.WCRRIUS2.W",
+        "stockPath": null,
+        "consPath": null
       },
       "gasoline": {
         "stock": "PET.WGTSTUS1.W",
-        "cons": "PET.WGFUPUS2.W"
+        "cons": "PET.WGFUPUS2.W",
+        "stockPath": null,
+        "consPath": null
       },
       "distillate": {
         "stock": "PET.WDISTUS1.W",
-        "cons": "PET.WDIUPUS2.W"
+        "cons": "PET.WDIUPUS2.W",
+        "stockPath": null,
+        "consPath": null
       },
       "jet_fuel": {
         "stock": "PET.WKJSTUS1.W",
-        "cons": "PET.WKJUPUS2.W"
+        "cons": "PET.WKJUPUS2.W",
+        "stockPath": null,
+        "consPath": null
       },
       "propane": {
         "stock": "PET.WPRSTUS1.W",
-        "cons": "PET.WPRUP_NUS_2.W"
+        "cons": "PET.WPRUP_NUS_2.W",
+        "stockPath": null,
+        "consPath": null
       },
       "residual": {
-        "stock": "PET.WRESTUS1.W",
-        "cons": "PET.WREUPUS2.W"
+        "stock": null,
+        "cons": null,
+        "stockPath": "petroleum/stoc/wstk/data/",
+        "consPath": "petroleum/sum/sndw/data/"
       }
     }
   }
