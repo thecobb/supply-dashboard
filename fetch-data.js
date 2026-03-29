@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 /**
- * fetch-data.js — EIA API v2 Data Fetcher for STOCKPILE Dashboard
+ * fetch-data.js v2 — STOCKPILE Data Fetcher
  *
- * Fetches weekly petroleum stocks, product supplied (consumption),
- * natural gas storage, and spot prices from the EIA API.
- * Computes days-of-supply and writes data/latest.json.
+ * Uses EIA LEGACY SERIES IDs via /v2/seriesid/ (backward-compat route).
+ * These IDs are documented at eia.gov/dnav/pet/ and are stable.
  *
- * Usage:
- *   EIA_API_KEY=your_key node fetch-data.js
+ * UNIT TRUTH:
+ *   Stocks          → Thousand Barrels (absolute inventory level)
+ *   Product Supplied → Thousand Barrels PER DAY (already a daily rate!)
+ *   Days of Supply   = Stocks ÷ Product_Supplied   (NO ÷7 !!!)
  *
- * Designed to run in GitHub Actions on a cron schedule.
+ * Usage: EIA_API_KEY=xxxxx node fetch-data.js
  */
 
 const fs = require('fs');
@@ -18,337 +19,160 @@ const https = require('https');
 
 const API_KEY = process.env.EIA_API_KEY;
 if (!API_KEY) {
-  console.error('ERROR: EIA_API_KEY environment variable is required');
-  console.error('Get a free key at: https://www.eia.gov/opendata/register.php');
+  console.error('ERROR: Set EIA_API_KEY env var. Free key: https://www.eia.gov/opendata/register.php');
   process.exit(1);
 }
 
-const EIA_BASE = 'https://api.eia.gov/v2';
 const DATA_DIR = path.join(__dirname, 'data');
-const OUTPUT_FILE = path.join(DATA_DIR, 'latest.json');
-const BASELINE_DATE = '2026-02-27';
+const OUTPUT   = path.join(DATA_DIR, 'latest.json');
+const BASELINE = '2026-02-27';
 
-// ─── Commodity Definitions ───────────────────────────────────
-const COMMODITIES = [
-  {
-    id: 'crude_excl_spr',
-    name: 'Crude Oil (Excl. SPR)',
-    stockPath: 'petroleum/stoc/wstk/data/',
-    stockFacets: { product: ['EPC0'], process: ['SAE'], duoarea: ['NUS'] },
-    consumptionPath: 'petroleum/sum/sndw/data/',
-    consumptionFacets: { product: ['EPC0'], process: ['FPF'], duoarea: ['NUS'] },
-    unit: 'thousand barrels',
-    divisor: 1000, // display in millions
-    fallbackDailyUse: 20100,
-  },
-  {
-    id: 'crude_incl_spr',
-    name: 'Crude Oil (Incl. SPR)',
-    stockPath: 'petroleum/stoc/wstk/data/',
-    stockFacets: { product: ['EPC0'], process: ['SAX'], duoarea: ['NUS'] },
-    consumptionPath: 'petroleum/sum/sndw/data/',
-    consumptionFacets: { product: ['EPC0'], process: ['FPF'], duoarea: ['NUS'] },
-    unit: 'thousand barrels',
-    divisor: 1000,
-    fallbackDailyUse: 20100,
-  },
-  {
-    id: 'gasoline',
-    name: 'Motor Gasoline',
-    stockPath: 'petroleum/stoc/wstk/data/',
-    stockFacets: { product: ['EPM0'], process: ['SAE'], duoarea: ['NUS'] },
-    consumptionPath: 'petroleum/sum/sndw/data/',
-    consumptionFacets: { product: ['EPM0'], process: ['FPF'], duoarea: ['NUS'] },
-    unit: 'thousand barrels',
-    divisor: 1000,
-    fallbackDailyUse: 8940,
-  },
-  {
-    id: 'distillate',
-    name: 'Distillate Fuel Oil',
-    stockPath: 'petroleum/stoc/wstk/data/',
-    stockFacets: { product: ['EPD0'], process: ['SAE'], duoarea: ['NUS'] },
-    consumptionPath: 'petroleum/sum/sndw/data/',
-    consumptionFacets: { product: ['EPD0'], process: ['FPF'], duoarea: ['NUS'] },
-    unit: 'thousand barrels',
-    divisor: 1000,
-    fallbackDailyUse: 3860,
-  },
-  {
-    id: 'jet_fuel',
-    name: 'Jet Fuel (Kerosene-Type)',
-    stockPath: 'petroleum/stoc/wstk/data/',
-    stockFacets: { product: ['EPJK'], process: ['SAE'], duoarea: ['NUS'] },
-    consumptionPath: 'petroleum/sum/sndw/data/',
-    consumptionFacets: { product: ['EPJK'], process: ['FPF'], duoarea: ['NUS'] },
-    unit: 'thousand barrels',
-    divisor: 1000,
-    fallbackDailyUse: 1710,
-  },
-  {
-    id: 'propane',
-    name: 'Propane/Propylene',
-    stockPath: 'petroleum/stoc/wstk/data/',
-    stockFacets: { product: ['EPLLPZ'], process: ['SAE'], duoarea: ['NUS'] },
-    consumptionPath: 'petroleum/sum/sndw/data/',
-    consumptionFacets: { product: ['EPLLPZ'], process: ['FPF'], duoarea: ['NUS'] },
-    unit: 'thousand barrels',
-    divisor: 1000,
-    fallbackDailyUse: 1120,
-  },
-  {
-    id: 'residual',
-    name: 'Residual Fuel Oil',
-    stockPath: 'petroleum/stoc/wstk/data/',
-    stockFacets: { product: ['EPR0'], process: ['SAE'], duoarea: ['NUS'] },
-    consumptionPath: 'petroleum/sum/sndw/data/',
-    consumptionFacets: { product: ['EPR0'], process: ['FPF'], duoarea: ['NUS'] },
-    unit: 'thousand barrels',
-    divisor: 1000,
-    fallbackDailyUse: 280,
-  },
+/*
+ * Verified series IDs from:
+ *   Stocks:   https://www.eia.gov/dnav/pet/pet_stoc_wstk_dcu_nus_w.htm
+ *   Supplied: https://www.eia.gov/dnav/pet/pet_sum_sndw_dcus_nus_w.htm
+ */
+const SERIES = [
+  { id:'crude_excl_spr', name:'Crude Oil (Excl. SPR)',
+    stock:'PET.WCESTUS1.W',   cons:'PET.WCRFPUS2.W' },
+  { id:'crude_incl_spr', name:'Crude Oil (Incl. SPR)',
+    stock:'PET.WCRSTUS1.W',   cons:'PET.WCRFPUS2.W' },
+  { id:'gasoline',       name:'Motor Gasoline',
+    stock:'PET.WGTSTUS1.W',   cons:'PET.WGFUPUS2.W' },
+  { id:'distillate',     name:'Distillate / Diesel',
+    stock:'PET.WDISTUS1.W',   cons:'PET.WDIUPUS2.W' },
+  { id:'jet_fuel',       name:'Jet Fuel (Kerosene)',
+    stock:'PET.WKJSTUS1.W',   cons:'PET.WKJUPUS2.W' },
+  { id:'propane',        name:'Propane/Propylene',
+    stock:'PET.WPRSTUS1.W',   cons:'PET.WPRUP_NUS_2.W' },
+  { id:'residual',       name:'Residual Fuel Oil',
+    stock:'PET.WRESTUS1.W',   cons:'PET.WREUPUS2.W' },
 ];
 
-// ─── HTTP Helper ─────────────────────────────────────────────
-function fetchJSON(url) {
+// ─── helpers ─────────────────────────────────────────────────
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function get(url) {
   return new Promise((resolve, reject) => {
-    https.get(url, { headers: { 'Accept': 'application/json' } }, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          resolve(JSON.parse(data));
-        } catch (e) {
-          reject(new Error(`JSON parse error: ${e.message}\nURL: ${url}\nBody: ${data.slice(0, 500)}`));
-        }
-      });
+    https.get(url, {headers:{'Accept':'application/json'}}, res => {
+      let d = '';
+      res.on('data', c => d += c);
+      res.on('end', () => { try { resolve(JSON.parse(d)); } catch(e) { reject(e); }});
     }).on('error', reject);
   });
 }
 
-function buildURL(apiPath, facets, extraParams = {}) {
-  let url = `${EIA_BASE}/${apiPath}?api_key=${API_KEY}&frequency=weekly&data[]=value`;
-
-  // Add facets
-  for (const [key, values] of Object.entries(facets)) {
-    for (const val of values) {
-      url += `&facets[${key}][]=${encodeURIComponent(val)}`;
-    }
-  }
-
-  // Sort by period descending, get 60 weeks
-  url += '&sort[0][column]=period&sort[0][direction]=desc';
-  url += `&length=${extraParams.length || 60}`;
-
-  return url;
+async function pull(seriesId, n = 104) {
+  const url = `https://api.eia.gov/v2/seriesid/${seriesId}?api_key=${API_KEY}&length=${n}&sort[0][column]=period&sort[0][direction]=desc`;
+  const j = await get(url);
+  if (!j.response?.data?.length) throw new Error(`Empty: ${seriesId}`);
+  return j.response.data
+    .map(d => ({ period: d.period, value: parseFloat(d.value) }))
+    .filter(d => !isNaN(d.value));
 }
 
-// ─── Main ────────────────────────────────────────────────────
-async function main() {
-  console.log('╔══════════════════════════════════════╗');
-  console.log('║   STOCKPILE Data Fetcher v1.0        ║');
-  console.log('║   EIA API v2 → data/latest.json      ║');
-  console.log('╚══════════════════════════════════════╝');
-  console.log(`Timestamp: ${new Date().toISOString()}`);
-  console.log(`API Key: ${API_KEY.slice(0, 4)}...${API_KEY.slice(-4)}\n`);
+function nearest(arr, date) {
+  const t = new Date(date).getTime();
+  return arr.reduce((best, d) =>
+    Math.abs(new Date(d.period).getTime() - t) <
+    Math.abs(new Date(best.period).getTime() - t) ? d : best
+  );
+}
 
-  const results = {};
-  const histories = {};
+// ─── main ────────────────────────────────────────────────────
+async function main() {
+  console.log('STOCKPILE fetcher v2 — legacy series IDs, correct units');
+  console.log(`${new Date().toISOString()}  baseline=${BASELINE}\n`);
+
+  const results = {}, histories = {};
   let latestPeriod = '';
 
-  // ── Fetch each petroleum commodity ──
-  for (const commodity of COMMODITIES) {
-    console.log(`→ Fetching ${commodity.name}...`);
-
+  for (const s of SERIES) {
     try {
-      // 1. Fetch stocks
-      const stockURL = buildURL(commodity.stockPath, commodity.stockFacets);
-      const stockData = await fetchJSON(stockURL);
+      const stocks = await pull(s.stock); await sleep(100);
+      const cons   = await pull(s.cons);  await sleep(100);
 
-      if (!stockData.response?.data?.length) {
-        console.warn(`  ⚠ No stock data for ${commodity.id}`);
-        continue;
-      }
+      const curS = stocks[0].value;           // thousand barrels
+      const prvS = stocks[1]?.value ?? curS;
+      const curC = cons[0].value;             // thousand barrels PER DAY
+      const per  = stocks[0].period;
+      if (per > latestPeriod) latestPeriod = per;
 
-      const latest = stockData.response.data[0];
-      const stocks = parseFloat(latest.value);
-      const period = latest.period;
-      if (period > latestPeriod) latestPeriod = period;
+      // *** THE FIX: no ÷7 — product supplied is already kb/d ***
+      const days = curS / curC;
 
-      const prevStocks = stockData.response.data.length > 1
-        ? parseFloat(stockData.response.data[1].value)
-        : stocks;
+      // baseline from actual data
+      const bS = nearest(stocks, BASELINE);
+      const bC = nearest(cons,   BASELINE);
+      const bDays = bS.value / bC.value;
 
-      // 2. Fetch product supplied (consumption)
-      let dailyUse = commodity.fallbackDailyUse;
-      try {
-        const consURL = buildURL(commodity.consumptionPath, commodity.consumptionFacets, { length: 5 });
-        const consData = await fetchJSON(consURL);
-        if (consData.response?.data?.length) {
-          const weeklySupplied = parseFloat(consData.response.data[0].value);
-          if (weeklySupplied > 0) {
-            dailyUse = weeklySupplied / 7;
-          }
-        }
-      } catch (e) {
-        console.warn(`  ⚠ Using fallback consumption for ${commodity.id}: ${e.message}`);
-      }
+      // 2-year average as proxy for 5-year
+      const avgS = stocks.reduce((a,d)=>a+d.value,0) / stocks.length;
 
-      const daysOfSupply = stocks / dailyUse;
+      // history (matched by period)
+      const cMap = Object.fromEntries(cons.map(d=>[d.period, d.value]));
+      const hist = stocks.slice(0,52).reverse().map(d => ({
+        week: d.period,
+        value: Math.round((d.value / (cMap[d.period]||curC)) * 10) / 10,
+      }));
 
-      // 3. Compute 5-year average (from the 52 weeks of data, approximate)
-      const allStocks = stockData.response.data.map(d => parseFloat(d.value)).filter(v => !isNaN(v));
-      const recentAvg = allStocks.length > 0
-        ? allStocks.reduce((a, b) => a + b, 0) / allStocks.length
-        : stocks;
-      const pctVsFiveYr = ((stocks - recentAvg) / recentAvg) * 100;
-
-      // 4. Build history for sparklines (days of supply over time)
-      const history = stockData.response.data
-        .slice(0, 52)
-        .reverse()
-        .map(d => ({
-          week: d.period,
-          value: Math.round((parseFloat(d.value) / dailyUse) * 10) / 10,
-        }));
-
-      results[commodity.id] = {
-        stocks,
-        dailyConsumption: Math.round(dailyUse),
-        daysOfSupply: Math.round(daysOfSupply * 10) / 10,
-        prevWeekStocks: prevStocks,
-        fiveYrAvg: Math.round(recentAvg),
-        pctVsFiveYr: Math.round(pctVsFiveYr * 10) / 10,
-        // Baseline approximations (use first data point near baseline date)
-        baselineStocks: stocks * 0.98, // placeholder — should find data from baseline week
-        baselineDays: daysOfSupply * 1.02,
-        period,
+      results[s.id] = {
+        stocks: curS,
+        dailyConsumption: Math.round(curC),
+        daysOfSupply: Math.round(days*10)/10,
+        prevWeekStocks: prvS,
+        fiveYrAvg: Math.round(avgS),
+        pctVsFiveYr: Math.round(((curS-avgS)/avgS)*1000)/10,
+        baselineStocks: bS.value,
+        baselineDays: Math.round(bDays*10)/10,
+        baselinePeriod: bS.period,
+        period: per,
       };
+      histories[s.id] = hist;
 
-      histories[commodity.id] = history;
-
-      console.log(`  ✓ ${commodity.id}: ${daysOfSupply.toFixed(1)} days (${stocks.toLocaleString()} bbl)`);
-
-      // Rate limit: 100ms between calls
-      await new Promise(r => setTimeout(r, 150));
-
-    } catch (e) {
-      console.error(`  ✗ Failed ${commodity.id}: ${e.message}`);
+      console.log(`✓ ${s.id.padEnd(18)} ${days.toFixed(1).padStart(5)}d  stk=${curS.toLocaleString()} kb  cons=${curC.toLocaleString()} kb/d  base=${bDays.toFixed(1)}d`);
+    } catch(e) {
+      console.error(`✗ ${s.id}: ${e.message}`);
     }
   }
 
-  // ── Fetch Natural Gas Storage ──
-  console.log('\n→ Fetching Natural Gas Storage...');
+  // natural gas
   try {
-    const ngURL = `${EIA_BASE}/natural-gas/stor/wkly/data/?api_key=${API_KEY}&frequency=weekly&data[]=value&facets[process][]=SAY&sort[0][column]=period&sort[0][direction]=desc&length=60`;
-    const ngData = await fetchJSON(ngURL);
+    const ng = await pull('NG.NW2_EPG0_SWO_R48_BCF.W');
+    const cur = ng[0].value, prv = ng[1]?.value ?? cur;
+    const dailyUse = 78.5; // Bcf/d US avg
+    const bPt = nearest(ng, BASELINE);
+    const avg = ng.reduce((a,d)=>a+d.value,0)/ng.length;
+    results.natgas = {
+      stocks: cur, dailyConsumption: dailyUse,
+      daysOfSupply: Math.round((cur/dailyUse)*10)/10,
+      prevWeekStocks: prv,
+      fiveYrAvg: Math.round(avg),
+      pctVsFiveYr: Math.round(((cur-avg)/avg)*1000)/10,
+      baselineStocks: bPt.value,
+      baselineDays: Math.round((bPt.value/dailyUse)*10)/10,
+      baselinePeriod: bPt.period,
+      period: ng[0].period,
+    };
+    histories.natgas = ng.slice(0,52).reverse().map(d=>({
+      week:d.period, value:Math.round((d.value/dailyUse)*10)/10,
+    }));
+    console.log(`✓ natgas             ${(cur/dailyUse).toFixed(1).padStart(5)}d  ${cur} Bcf`);
+  } catch(e) { console.error(`✗ natgas: ${e.message}`); }
 
-    if (ngData.response?.data?.length) {
-      const latest = parseFloat(ngData.response.data[0].value);
-      const prev = ngData.response.data.length > 1 ? parseFloat(ngData.response.data[1].value) : latest;
-      const dailyUse = 78.5; // Bcf/day approximate US winter consumption
-      const allVals = ngData.response.data.map(d => parseFloat(d.value)).filter(v => !isNaN(v));
-      const avg = allVals.reduce((a, b) => a + b, 0) / allVals.length;
-
-      results.natgas = {
-        stocks: latest,
-        dailyConsumption: dailyUse,
-        daysOfSupply: Math.round((latest / dailyUse) * 10) / 10,
-        prevWeekStocks: prev,
-        fiveYrAvg: Math.round(avg),
-        pctVsFiveYr: Math.round(((latest - avg) / avg) * 100 * 10) / 10,
-        baselineStocks: 2050,
-        baselineDays: 26.1,
-        period: ngData.response.data[0].period,
-      };
-
-      histories.natgas = ngData.response.data
-        .slice(0, 52)
-        .reverse()
-        .map(d => ({
-          week: d.period,
-          value: Math.round((parseFloat(d.value) / dailyUse) * 10) / 10,
-        }));
-
-      console.log(`  ✓ natgas: ${results.natgas.daysOfSupply} days (${latest} Bcf)`);
-    }
-  } catch (e) {
-    console.error(`  ✗ Failed natgas: ${e.message}`);
-  }
-
-  // ── Fetch Spot Prices ──
-  console.log('\n→ Fetching Spot Prices...');
-  const priceResults = [];
-  const priceSeries = [
-    { ticker: 'WTI', name: 'WTI Crude', series: 'RWTC' },
-    { ticker: 'BRENT', name: 'Brent Crude', series: 'RBRTE' },
-    { ticker: 'HH', name: 'Henry Hub NG', series: '' }, // different API path
-  ];
-
-  try {
-    const priceURL = `${EIA_BASE}/petroleum/pri/spt/data/?api_key=${API_KEY}&frequency=daily&data[]=value&sort[0][column]=period&sort[0][direction]=desc&length=20`;
-    const priceData = await fetchJSON(priceURL);
-
-    if (priceData.response?.data) {
-      // Group by series and get latest for each
-      const byProduct = {};
-      priceData.response.data.forEach(d => {
-        const key = d.product || d.series || 'unknown';
-        if (!byProduct[key]) byProduct[key] = [];
-        byProduct[key].push(d);
-      });
-
-      // Map to our price tickers
-      Object.entries(byProduct).forEach(([key, entries]) => {
-        if (entries.length >= 2) {
-          const curr = parseFloat(entries[0].value);
-          const prev = parseFloat(entries[1].value);
-          const change = curr - prev;
-          priceResults.push({
-            ticker: key.slice(0, 6),
-            name: entries[0]['product-name'] || key,
-            price: curr,
-            change: Math.round(change * 100) / 100,
-            pct: Math.round((change / prev) * 10000) / 100,
-          });
-        }
-      });
-    }
-  } catch (e) {
-    console.warn(`  ⚠ Prices fallback: ${e.message}`);
-  }
-
-  // ── Write Output ──
-  console.log('\n→ Writing data/latest.json...');
-
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-
-  const output = {
-    timestamp: latestPeriod || new Date().toISOString().slice(0, 10),
-    fetchedAt: new Date().toISOString(),
-    baselineDate: BASELINE_DATE,
-    commodities: results,
-    histories: histories,
-    prices: priceResults.length > 0 ? priceResults : undefined,
+  // write
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR,{recursive:true});
+  const out = {
+    timestamp: latestPeriod, fetchedAt: new Date().toISOString(),
+    baselineDate: BASELINE, commodities: results, histories,
     meta: {
-      source: 'U.S. Energy Information Administration (EIA) API v2',
-      url: 'https://api.eia.gov/v2/',
-      methodology: 'Days of Supply = Ending Stocks / (Weekly Product Supplied / 7)',
-      coverage: 'U.S. national (all PAD Districts)',
+      source:'EIA API v2 via /v2/seriesid/',
+      formula:'Days = Stocks(kb) ÷ ProductSupplied(kb/d)  — NO divide-by-7',
+      seriesIds: Object.fromEntries(SERIES.map(s=>[s.id,{stock:s.stock,cons:s.cons}])),
     },
   };
-
-  fs.writeFileSync(OUTPUT_FILE, JSON.stringify(output, null, 2));
-
-  const stats = Object.keys(results).length;
-  console.log(`\n✓ Done! Wrote ${stats} commodities to ${OUTPUT_FILE}`);
-  console.log(`  Latest period: ${latestPeriod}`);
-  console.log(`  File size: ${(fs.statSync(OUTPUT_FILE).size / 1024).toFixed(1)} KB`);
+  fs.writeFileSync(OUTPUT, JSON.stringify(out, null, 2));
+  console.log(`\nWrote ${Object.keys(results).length} commodities → ${OUTPUT}`);
 }
 
-main().catch(e => {
-  console.error('Fatal error:', e);
-  process.exit(1);
-});
+main().catch(e=>{ console.error(e); process.exit(1); });

@@ -834,6 +834,35 @@ function App() {
       });
   }, []);
 
+  // Verified EIA legacy series IDs (stable, documented)
+  const LEGACY_SERIES = [
+    { id:'crude_excl_spr', stock:'PET.WCESTUS1.W', cons:'PET.WCRFPUS2.W' },
+    { id:'crude_incl_spr', stock:'PET.WCRSTUS1.W', cons:'PET.WCRFPUS2.W' },
+    { id:'gasoline',       stock:'PET.WGTSTUS1.W', cons:'PET.WGFUPUS2.W' },
+    { id:'distillate',     stock:'PET.WDISTUS1.W', cons:'PET.WDIUPUS2.W' },
+    { id:'jet_fuel',       stock:'PET.WKJSTUS1.W', cons:'PET.WKJUPUS2.W' },
+    { id:'propane',        stock:'PET.WPRSTUS1.W', cons:'PET.WPRUP_NUS_2.W' },
+    { id:'residual',       stock:'PET.WRESTUS1.W', cons:'PET.WREUPUS2.W' },
+  ];
+
+  async function fetchEIASeries(seriesId, key, n = 104) {
+    const url = `https://api.eia.gov/v2/seriesid/${seriesId}?api_key=${key}&length=${n}&sort[0][column]=period&sort[0][direction]=desc`;
+    const resp = await fetch(url);
+    const json = await resp.json();
+    if (!json.response?.data?.length) throw new Error(`No data: ${seriesId}`);
+    return json.response.data
+      .map(d => ({ period: d.period, value: parseFloat(d.value) }))
+      .filter(d => !isNaN(d.value));
+  }
+
+  function findNearest(arr, targetDate) {
+    const t = new Date(targetDate).getTime();
+    return arr.reduce((best, d) =>
+      Math.abs(new Date(d.period).getTime() - t) <
+      Math.abs(new Date(best.period).getTime() - t) ? d : best
+    );
+  }
+
   const fetchLiveData = useCallback(async () => {
     if (!apiKey) return;
     setLoading(true);
@@ -841,129 +870,77 @@ function App() {
 
     try {
       const results = {};
-      const stockConfigs = COMMODITY_CONFIG.filter(c => !c.isNatGas);
+      const newHistories = {};
 
-      // Fetch stocks for all petroleum products
-      for (const cfg of stockConfigs) {
+      for (const s of LEGACY_SERIES) {
         try {
-          const facetParams = Object.entries(cfg.facets)
-            .map(([k, vals]) => vals.map(v => `facets[${k}][]=${v}`).join('&'))
-            .join('&');
+          const stocks = await fetchEIASeries(s.stock, apiKey);
+          const cons   = await fetchEIASeries(s.cons, apiKey);
 
-          const stockUrl = `${EIA_BASE}/${cfg.apiPath}?api_key=${apiKey}&frequency=weekly&data[]=value&${facetParams}&facets[duoarea][]=NUS&sort[0][column]=period&sort[0][direction]=desc&length=60`;
+          const curS = stocks[0].value;      // thousand barrels
+          const prvS = stocks[1]?.value ?? curS;
+          const curC = cons[0].value;        // thousand barrels PER DAY (already daily!)
 
-          const stockResp = await fetch(stockUrl);
-          const stockJson = await stockResp.json();
+          // *** CORRECT: stocks ÷ daily_rate, NO ÷7 ***
+          const days = curS / curC;
 
-          if (stockJson.response && stockJson.response.data && stockJson.response.data.length > 0) {
-            const latestStocks = parseFloat(stockJson.response.data[0].value);
-            const prevStocks = stockJson.response.data.length > 1 ? parseFloat(stockJson.response.data[1].value) : latestStocks;
-            const timestamp = stockJson.response.data[0].period;
+          // Baseline from actual data near 2026-02-27
+          const bS = findNearest(stocks, '2026-02-27');
+          const bC = findNearest(cons, '2026-02-27');
+          const bDays = bS.value / bC.value;
 
-            // Also fetch product supplied for days-of-supply calculation
-            const consFacetParams = Object.entries(cfg.consumptionFacets)
-              .map(([k, vals]) => vals.map(v => `facets[${k}][]=${v}`).join('&'))
-              .join('&');
+          const avgS = stocks.reduce((a,d) => a+d.value, 0) / stocks.length;
 
-            const consUrl = `${EIA_BASE}/${cfg.consumptionPath}?api_key=${apiKey}&frequency=weekly&data[]=value&${consFacetParams}&facets[duoarea][]=NUS&sort[0][column]=period&sort[0][direction]=desc&length=5`;
+          // History matched by period
+          const cMap = Object.fromEntries(cons.map(d => [d.period, d.value]));
+          const hist = stocks.slice(0, 52).reverse().map(d => ({
+            week: d.period,
+            value: Math.round((d.value / (cMap[d.period] || curC)) * 10) / 10,
+          }));
 
-            let dailyUse = SEED_DATA[cfg.id]?.dailyConsumption || 1;
-            try {
-              const consResp = await fetch(consUrl);
-              const consJson = await consResp.json();
-              if (consJson.response?.data?.length > 0) {
-                const weeklySupplied = parseFloat(consJson.response.data[0].value);
-                dailyUse = weeklySupplied / 7;
-              }
-            } catch (e) { /* use seed fallback */ }
-
-            const daysOfSupply = latestStocks / dailyUse;
-
-            // Build history from returned data
-            const hist = stockJson.response.data
-              .slice(0, 52)
-              .reverse()
-              .map(d => ({
-                week: d.period,
-                value: Math.round((parseFloat(d.value) / dailyUse) * 10) / 10,
-              }));
-
-            results[cfg.id] = {
-              stocks: latestStocks,
-              dailyConsumption: dailyUse,
-              daysOfSupply: daysOfSupply,
-              prevWeekStocks: prevStocks,
-              fiveYrAvg: SEED_DATA[cfg.id]?.fiveYrAvg || latestStocks,
-              pctVsFiveYr: SEED_DATA[cfg.id]?.pctVsFiveYr || 0,
-              baselineStocks: SEED_DATA[cfg.id]?.baselineStocks || latestStocks,
-              baselineDays: SEED_DATA[cfg.id]?.baselineDays || daysOfSupply,
-              _timestamp: timestamp,
-              _history: hist,
-            };
-
-            setDataTimestamp(timestamp);
-          }
-        } catch (e) {
-          console.warn(`Failed to fetch ${cfg.id}:`, e);
-        }
-      }
-
-      // Natural gas storage
-      try {
-        const ngUrl = `${EIA_BASE}/natural-gas/stor/wkly/data/?api_key=${apiKey}&frequency=weekly&data[]=value&facets[process][]=SAY&sort[0][column]=period&sort[0][direction]=desc&length=60`;
-        const ngResp = await fetch(ngUrl);
-        const ngJson = await ngResp.json();
-        if (ngJson.response?.data?.length > 0) {
-          const latestNg = parseFloat(ngJson.response.data[0].value);
-          const prevNg = ngJson.response.data.length > 1 ? parseFloat(ngJson.response.data[1].value) : latestNg;
-          const dailyUse = SEED_DATA.natgas.dailyConsumption;
-
-          results.natgas = {
-            stocks: latestNg,
-            dailyConsumption: dailyUse,
-            daysOfSupply: latestNg / dailyUse,
-            prevWeekStocks: prevNg,
-            fiveYrAvg: SEED_DATA.natgas.fiveYrAvg,
-            pctVsFiveYr: ((latestNg - SEED_DATA.natgas.fiveYrAvg) / SEED_DATA.natgas.fiveYrAvg * 100),
-            baselineStocks: SEED_DATA.natgas.baselineStocks,
-            baselineDays: SEED_DATA.natgas.baselineDays,
-            _history: ngJson.response.data.slice(0, 52).reverse().map(d => ({
-              week: d.period,
-              value: Math.round((parseFloat(d.value) / dailyUse) * 10) / 10,
-            })),
+          results[s.id] = {
+            stocks: curS,
+            dailyConsumption: Math.round(curC),
+            daysOfSupply: Math.round(days * 10) / 10,
+            prevWeekStocks: prvS,
+            fiveYrAvg: Math.round(avgS),
+            pctVsFiveYr: Math.round(((curS - avgS) / avgS) * 1000) / 10,
+            baselineStocks: bS.value,
+            baselineDays: Math.round(bDays * 10) / 10,
           };
+          newHistories[s.id] = hist;
+
+          setDataTimestamp(stocks[0].period);
+        } catch (e) {
+          console.warn(`Failed ${s.id}:`, e.message);
         }
-      } catch (e) {
-        console.warn('Failed to fetch natural gas:', e);
       }
 
-      // Spot prices
+      // Natural gas
       try {
-        const priceUrl = `${EIA_BASE}/petroleum/pri/spt/data/?api_key=${apiKey}&frequency=daily&data[]=value&sort[0][column]=period&sort[0][direction]=desc&length=20`;
-        const priceResp = await fetch(priceUrl);
-        const priceJson = await priceResp.json();
-        // Process prices if available
-      } catch (e) { /* use seed prices */ }
+        const ng = await fetchEIASeries('NG.NW2_EPG0_SWO_R48_BCF.W', apiKey);
+        const cur = ng[0].value, prv = ng[1]?.value ?? cur;
+        const dailyUse = 78.5;
+        const bPt = findNearest(ng, '2026-02-27');
+        const avg = ng.reduce((a,d) => a+d.value, 0) / ng.length;
 
-      // Merge results
+        results.natgas = {
+          stocks: cur, dailyConsumption: dailyUse,
+          daysOfSupply: Math.round((cur/dailyUse)*10)/10,
+          prevWeekStocks: prv,
+          fiveYrAvg: Math.round(avg),
+          pctVsFiveYr: Math.round(((cur-avg)/avg)*1000)/10,
+          baselineStocks: bPt.value,
+          baselineDays: Math.round((bPt.value/dailyUse)*10)/10,
+        };
+        newHistories.natgas = ng.slice(0,52).reverse().map(d => ({
+          week: d.period, value: Math.round((d.value/dailyUse)*10)/10
+        }));
+      } catch (e) { console.warn('NG failed:', e.message); }
+
       if (Object.keys(results).length > 0) {
-        setCommodities(prev => ({ ...prev, ...Object.fromEntries(
-          Object.entries(results).map(([k, v]) => {
-            const { _timestamp, _history, ...rest } = v;
-            return [k, rest];
-          })
-        )}));
-
-        // Update histories
-        const newHistories = {};
-        Object.entries(results).forEach(([k, v]) => {
-          if (v._history && v._history.length > 5) {
-            newHistories[k] = v._history;
-          }
-        });
-        if (Object.keys(newHistories).length > 0) {
-          setHistories(prev => ({ ...prev, ...newHistories }));
-        }
+        setCommodities(prev => ({ ...prev, ...results }));
+        setHistories(prev => ({ ...prev, ...newHistories }));
       }
     } catch (e) {
       setError(e.message);
