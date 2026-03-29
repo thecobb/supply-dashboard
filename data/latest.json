@@ -1,6 +1,6 @@
 {
   "timestamp": "2026-03-20",
-  "fetchedAt": "2026-03-29T19:57:36.699Z",
+  "fetchedAt": "2026-03-29T20:27:59.896Z",
   "baselineDate": "2026-02-27",
   "commodities": {
     "crude_excl_spr": {
@@ -1338,6 +1338,48 @@
       }
     ]
   },
+  "prices": [
+    {
+      "ticker": "WTI",
+      "name": "WTI Crude",
+      "price": 89.33,
+      "change": -9.38,
+      "pct": -9.5,
+      "seriesId": "PET.RWTC.D"
+    },
+    {
+      "ticker": "BRENT",
+      "name": "Brent Crude",
+      "price": 103.79,
+      "change": -14.63,
+      "pct": -12.35,
+      "seriesId": "PET.RBRTE.D"
+    },
+    {
+      "ticker": "HH",
+      "name": "Henry Hub NG",
+      "price": 2.94,
+      "change": -0.1,
+      "pct": -3.29,
+      "seriesId": "NG.RNGWHHD.D"
+    },
+    {
+      "ticker": "RBOB",
+      "name": "RBOB Gasoline",
+      "price": 2.936,
+      "change": -0.322,
+      "pct": -9.88,
+      "seriesId": "PET.EER_EPMRU_PF4_RGC_DPG.D"
+    },
+    {
+      "ticker": "ULSD",
+      "name": "ULSD Diesel",
+      "price": 4.132,
+      "change": -0.33,
+      "pct": -7.4,
+      "seriesId": "PET.EER_EPD2DXL0_PF4_RGC_DPG.D"
+    }
+  ],
   "meta": {
     "source": "EIA API v2 via /v2/seriesid/",
     "formula": "Crude: Stocks(kb) ÷ 4-week avg RefineryNetInput(kb/d); Products: Stocks(kb) ÷ ProductSupplied(kb/d)",
