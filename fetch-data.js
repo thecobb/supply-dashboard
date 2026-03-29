@@ -47,8 +47,14 @@ const SERIES = [
     stock:'PET.WKJSTUS1.W',   cons:'PET.WKJUPUS2.W' },
   { id:'propane',        name:'Propane/Propylene',
     stock:'PET.WPRSTUS1.W',   cons:'PET.WPRUP_NUS_2.W' },
-  { id:'residual',       name:'Residual Fuel Oil',
-    stock:'PET.WRESTUS1.W',   cons:'PET.WREUPUS2.W' },
+  // Residual via facet endpoints (more reliable than legacy /seriesid route here).
+  {
+    id:'residual',       name:'Residual Fuel Oil',
+    stockPath:'petroleum/stoc/wstk/data/',
+    stockFacets:{ product:['EPR0'], process:['SAE'], duoarea:['NUS'] },
+    consPath:'petroleum/sum/sndw/data/',
+    consFacets:{ product:['EPR0'], process:['FPF'], duoarea:['NUS'] },
+  },
 ];
 
 // ─── helpers ─────────────────────────────────────────────────
@@ -68,6 +74,18 @@ async function pull(seriesId, n = 104) {
   const url = `https://api.eia.gov/v2/seriesid/${seriesId}?api_key=${API_KEY}&length=${n}&sort[0][column]=period&sort[0][direction]=desc`;
   const j = await get(url);
   if (!j.response?.data?.length) throw new Error(`Empty: ${seriesId}`);
+  return j.response.data
+    .map(d => ({ period: d.period, value: parseFloat(d.value) }))
+    .filter(d => !isNaN(d.value));
+}
+
+async function pullByFacets(apiPath, facets, n = 104) {
+  const facetParams = Object.entries(facets)
+    .map(([k, vals]) => vals.map(v => `facets[${k}][]=${encodeURIComponent(v)}`).join('&'))
+    .join('&');
+  const url = `https://api.eia.gov/v2/${apiPath}?api_key=${API_KEY}&frequency=weekly&data[]=value&${facetParams}&sort[0][column]=period&sort[0][direction]=desc&length=${n}`;
+  const j = await get(url);
+  if (!j.response?.data?.length) throw new Error(`Empty: ${apiPath}`);
   return j.response.data
     .map(d => ({ period: d.period, value: parseFloat(d.value) }))
     .filter(d => !isNaN(d.value));
@@ -129,8 +147,14 @@ async function main() {
 
   for (const s of SERIES) {
     try {
-      const stocks = await pull(s.stock); await sleep(100);
-      const cons   = await pull(s.cons);  await sleep(100);
+      const stocks = s.stockPath
+        ? await pullByFacets(s.stockPath, s.stockFacets)
+        : await pull(s.stock);
+      await sleep(100);
+      const cons = s.consPath
+        ? await pullByFacets(s.consPath, s.consFacets)
+        : await pull(s.cons);
+      await sleep(100);
 
       const curS = stocks[0].value;           // thousand barrels
       const prvS = stocks[1]?.value ?? curS;
@@ -186,7 +210,7 @@ async function main() {
 
   // natural gas
   try {
-    const ng = await pull('NG.NW2_EPG0_SWO_R48_BCF.W');
+    const ng = await pullByFacets('natural-gas/stor/wkly/data/', { process:['SAY'] });
     const cur = ng[0].value, prv = ng[1]?.value ?? cur;
     const dailyUse = 78.5; // Bcf/d US avg
     const bPt = nearest(ng, BASELINE);
@@ -216,7 +240,12 @@ async function main() {
     meta: {
       source:'EIA API v2 via /v2/seriesid/',
       formula:'Crude: Stocks(kb) ÷ 4-week avg RefineryNetInput(kb/d); Products: Stocks(kb) ÷ ProductSupplied(kb/d)',
-      seriesIds: Object.fromEntries(SERIES.map(s=>[s.id,{stock:s.stock,cons:s.cons}])),
+      seriesIds: Object.fromEntries(SERIES.map(s => [s.id, {
+        stock: s.stock || null,
+        cons: s.cons || null,
+        stockPath: s.stockPath || null,
+        consPath: s.consPath || null,
+      }])),
     },
   };
   fs.writeFileSync(OUTPUT, JSON.stringify(out, null, 2));

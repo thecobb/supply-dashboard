@@ -918,7 +918,14 @@ function App() {
     { id:'distillate',     stock:'PET.WDISTUS1.W', cons:'PET.WDIUPUS2.W' },
     { id:'jet_fuel',       stock:'PET.WKJSTUS1.W', cons:'PET.WKJUPUS2.W' },
     { id:'propane',        stock:'PET.WPRSTUS1.W', cons:'PET.WPRUP_NUS_2.W' },
-    { id:'residual',       stock:'PET.WRESTUS1.W', cons:'PET.WREUPUS2.W' },
+    // Residual pulls from facet endpoints (more reliable than legacy series route).
+    {
+      id:'residual',
+      stockPath:'petroleum/stoc/wstk/data/',
+      stockFacets:{ product:['EPR0'], process:['SAE'], duoarea:['NUS'] },
+      consPath:'petroleum/sum/sndw/data/',
+      consFacets:{ product:['EPR0'], process:['FPF'], duoarea:['NUS'] },
+    },
   ];
 
   async function fetchEIASeries(seriesId, key, n = 104) {
@@ -926,6 +933,19 @@ function App() {
     const resp = await fetch(url);
     const json = await resp.json();
     if (!json.response?.data?.length) throw new Error(`No data: ${seriesId}`);
+    return json.response.data
+      .map(d => ({ period: d.period, value: parseFloat(d.value) }))
+      .filter(d => !isNaN(d.value));
+  }
+
+  async function fetchEIAFacetSeries(apiPath, facets, key, n = 104) {
+    const facetParams = Object.entries(facets)
+      .map(([k, vals]) => vals.map(v => `facets[${k}][]=${encodeURIComponent(v)}`).join('&'))
+      .join('&');
+    const url = `${EIA_BASE}/${apiPath}?api_key=${key}&frequency=weekly&data[]=value&${facetParams}&sort[0][column]=period&sort[0][direction]=desc&length=${n}`;
+    const resp = await fetch(url);
+    const json = await resp.json();
+    if (!json.response?.data?.length) throw new Error(`No data: ${apiPath}`);
     return json.response.data
       .map(d => ({ period: d.period, value: parseFloat(d.value) }))
       .filter(d => !isNaN(d.value));
@@ -978,8 +998,12 @@ function App() {
 
       for (const s of LEGACY_SERIES) {
         try {
-          const stocks = await fetchEIASeries(s.stock, apiKey);
-          const cons   = await fetchEIASeries(s.cons, apiKey);
+          const stocks = s.stockPath
+            ? await fetchEIAFacetSeries(s.stockPath, s.stockFacets, apiKey)
+            : await fetchEIASeries(s.stock, apiKey);
+          const cons = s.consPath
+            ? await fetchEIAFacetSeries(s.consPath, s.consFacets, apiKey)
+            : await fetchEIASeries(s.cons, apiKey);
 
           const curS = stocks[0].value;      // thousand barrels
           const prvS = stocks[1]?.value ?? curS;
@@ -1029,7 +1053,11 @@ function App() {
 
       // Natural gas
       try {
-        const ng = await fetchEIASeries('NG.NW2_EPG0_SWO_R48_BCF.W', apiKey);
+        const ng = await fetchEIAFacetSeries(
+          'natural-gas/stor/wkly/data/',
+          { process: ['SAY'] },
+          apiKey
+        );
         const cur = ng[0].value, prv = ng[1]?.value ?? cur;
         const dailyUse = 78.5;
         const bPt = findNearest(ng, '2026-02-27');
