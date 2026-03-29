@@ -858,7 +858,7 @@ function SourcesPanel() {
           fontFamily: 'var(--font-sans)',
         }}>
           <strong style={{ color: 'var(--text-secondary)' }}>Days of Supply Calculation:</strong>{' '}
-          Ending Stocks ÷ Product Supplied (daily rate, kb/d for petroleum legacy series). Stocks from EIA Weekly Petroleum Status Report
+          For crude oil: Ending Stocks ÷ 4-week average Refiner Net Input (kb/d). For products: Ending Stocks ÷ Product Supplied (daily rate, kb/d). Stocks from EIA Weekly Petroleum Status Report
           (Table 4). Product Supplied from EIA Weekly Supply Estimates (Table 1). Natural Gas uses
           EIA Weekly Natural Gas Storage Report. Urea, ammonia, and ethylene prices are used as supply
           proxies since no public days-of-supply data exists for petrochemicals/fertilizers.
@@ -911,8 +911,9 @@ function App() {
 
   // Verified EIA legacy series IDs (stable, documented)
   const LEGACY_SERIES = [
-    { id:'crude_excl_spr', stock:'PET.WCESTUS1.W', cons:'PET.WCRFPUS2.W' },
-    { id:'crude_incl_spr', stock:'PET.WCRSTUS1.W', cons:'PET.WCRFPUS2.W' },
+    // Crude days-of-supply methodology: stocks ÷ 4-week avg refinery net input.
+    { id:'crude_excl_spr', stock:'PET.WCESTUS1.W', cons:'PET.WCRRIUS2.W', denomMethod:'refinery_net_input_4wk_avg' },
+    { id:'crude_incl_spr', stock:'PET.WCRSTUS1.W', cons:'PET.WCRRIUS2.W', denomMethod:'refinery_net_input_4wk_avg' },
     { id:'gasoline',       stock:'PET.WGTSTUS1.W', cons:'PET.WGFUPUS2.W' },
     { id:'distillate',     stock:'PET.WDISTUS1.W', cons:'PET.WDIUPUS2.W' },
     { id:'jet_fuel',       stock:'PET.WKJSTUS1.W', cons:'PET.WKJUPUS2.W' },
@@ -938,23 +939,22 @@ function App() {
     );
   }
 
-  function robustBaselineFromSeries(stocks, cons, baselineDate, currentDays) {
-    const cMap = Object.fromEntries(cons.map(d => [d.period, d.value]));
+  function robustBaselineFromSeries(stocks, denominatorByPeriod, baselineDate, currentDays) {
     const baselineStockPoint = findNearest(stocks, baselineDate);
-    const baselineCons = cMap[baselineStockPoint.period];
+    const baselineDenominator = denominatorByPeriod[baselineStockPoint.period];
 
     const recentDays = stocks.slice(0, 26)
       .map(d => {
-        const c = cMap[d.period];
-        if (!c || c <= 0) return null;
-        return d.value / c;
+        const denom = denominatorByPeriod[d.period];
+        if (!denom || denom <= 0) return null;
+        return d.value / denom;
       })
       .filter(v => Number.isFinite(v));
 
     const recentMedian = median(recentDays);
 
-    let baselineDays = (baselineCons && baselineCons > 0)
-      ? baselineStockPoint.value / baselineCons
+    let baselineDays = (baselineDenominator && baselineDenominator > 0)
+      ? baselineStockPoint.value / baselineDenominator
       : (recentMedian || currentDays);
 
     if (recentMedian && (baselineDays > recentMedian * 4 || baselineDays < recentMedian * 0.25)) {
@@ -983,21 +983,31 @@ function App() {
 
           const curS = stocks[0].value;      // thousand barrels
           const prvS = stocks[1]?.value ?? curS;
-          const curC = cons[0].value;        // thousand barrels PER DAY (already daily!)
 
-          // *** CORRECT: stocks ÷ daily_rate, NO ÷7 ***
+          let denominatorByPeriod = Object.fromEntries(cons.map(d => [d.period, d.value]));
+
+          // Crude methodology alignment with EIA days-of-supply: 4-week avg refinery net input.
+          if (s.denomMethod === 'refinery_net_input_4wk_avg') {
+            const rolling4w = {};
+            for (let i = 0; i < cons.length; i++) {
+              const win = cons.slice(i, i + 4).map(d => d.value).filter(v => Number.isFinite(v) && v > 0);
+              if (win.length > 0) rolling4w[cons[i].period] = win.reduce((a, b) => a + b, 0) / win.length;
+            }
+            denominatorByPeriod = rolling4w;
+          }
+
+          const curC = denominatorByPeriod[stocks[0].period] || cons[0].value;
           const days = curS / curC;
 
           const avgS = stocks.reduce((a,d) => a+d.value, 0) / stocks.length;
 
           // History matched by period
-          const cMap = Object.fromEntries(cons.map(d => [d.period, d.value]));
           const hist = stocks.slice(0, 52).reverse().map(d => ({
             week: d.period,
-            value: Math.round((d.value / (cMap[d.period] || curC)) * 10) / 10,
+            value: Math.round((d.value / (denominatorByPeriod[d.period] || curC)) * 10) / 10,
           }));
 
-          const baseline = robustBaselineFromSeries(stocks, cons, '2026-02-27', days);
+          const baseline = robustBaselineFromSeries(stocks, denominatorByPeriod, '2026-02-27', days);
 
           results[s.id] = {
             stocks: curS,

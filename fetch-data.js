@@ -6,9 +6,10 @@
  * These IDs are documented at eia.gov/dnav/pet/ and are stable.
  *
  * UNIT TRUTH:
- *   Stocks          → Thousand Barrels (absolute inventory level)
- *   Product Supplied → Thousand Barrels PER DAY (already a daily rate!)
- *   Days of Supply   = Stocks ÷ Product_Supplied   (NO ÷7 !!!)
+ *   Stocks           → Thousand Barrels (absolute inventory level)
+ *   Product Supplied → Thousand Barrels PER DAY (already a daily rate)
+ *   Crude DoS        = Stocks ÷ 4-week avg Refinery Net Input (kb/d)
+ *   Product DoS      = Stocks ÷ Product Supplied (kb/d) (NO ÷7)
  *
  * Usage: EIA_API_KEY=xxxxx node fetch-data.js
  */
@@ -33,10 +34,11 @@ const BASELINE = '2026-02-27';
  *   Supplied: https://www.eia.gov/dnav/pet/pet_sum_sndw_dcus_nus_w.htm
  */
 const SERIES = [
+  // Crude days-of-supply: stocks ÷ 4-week average refinery net input.
   { id:'crude_excl_spr', name:'Crude Oil (Excl. SPR)',
-    stock:'PET.WCESTUS1.W',   cons:'PET.WCRFPUS2.W' },
+    stock:'PET.WCESTUS1.W',   cons:'PET.WCRRIUS2.W', denomMethod:'refinery_net_input_4wk_avg' },
   { id:'crude_incl_spr', name:'Crude Oil (Incl. SPR)',
-    stock:'PET.WCRSTUS1.W',   cons:'PET.WCRFPUS2.W' },
+    stock:'PET.WCRSTUS1.W',   cons:'PET.WCRRIUS2.W', denomMethod:'refinery_net_input_4wk_avg' },
   { id:'gasoline',       name:'Motor Gasoline',
     stock:'PET.WGTSTUS1.W',   cons:'PET.WGFUPUS2.W' },
   { id:'distillate',     name:'Distillate / Diesel',
@@ -87,23 +89,22 @@ function median(values) {
   return sorted[mid];
 }
 
-function robustBaselineFromSeries(stocks, cons, baselineDate, currentDays) {
-  const cMap = Object.fromEntries(cons.map(d => [d.period, d.value]));
+function robustBaselineFromSeries(stocks, denominatorByPeriod, baselineDate, currentDays) {
   const baselineStockPoint = nearest(stocks, baselineDate);
-  const baselineCons = cMap[baselineStockPoint.period];
+  const baselineDenominator = denominatorByPeriod[baselineStockPoint.period];
 
   const recentDays = stocks.slice(0, 26)
     .map(d => {
-      const c = cMap[d.period];
-      if (!c || c <= 0) return null;
-      return d.value / c;
+      const denom = denominatorByPeriod[d.period];
+      if (!denom || denom <= 0) return null;
+      return d.value / denom;
     })
     .filter(v => Number.isFinite(v));
 
   const recentMedian = median(recentDays);
 
-  let baselineDays = (baselineCons && baselineCons > 0)
-    ? baselineStockPoint.value / baselineCons
+  let baselineDays = (baselineDenominator && baselineDenominator > 0)
+    ? baselineStockPoint.value / baselineDenominator
     : (recentMedian || currentDays);
 
   // Guard against outlier baseline points caused by tiny denominator glitches.
@@ -133,25 +134,35 @@ async function main() {
 
       const curS = stocks[0].value;           // thousand barrels
       const prvS = stocks[1]?.value ?? curS;
-      const curC = cons[0].value;             // thousand barrels PER DAY
       const per  = stocks[0].period;
       if (per > latestPeriod) latestPeriod = per;
 
-      // *** THE FIX: no ÷7 — product supplied is already kb/d ***
+      let denominatorByPeriod = Object.fromEntries(cons.map(d => [d.period, d.value]));
+
+      // Crude methodology alignment with EIA days-of-supply: 4-week avg refinery net input.
+      if (s.denomMethod === 'refinery_net_input_4wk_avg') {
+        const rolling4w = {};
+        for (let i = 0; i < cons.length; i++) {
+          const win = cons.slice(i, i + 4).map(d => d.value).filter(v => Number.isFinite(v) && v > 0);
+          if (win.length > 0) rolling4w[cons[i].period] = win.reduce((a, b) => a + b, 0) / win.length;
+        }
+        denominatorByPeriod = rolling4w;
+      }
+
+      const curC = denominatorByPeriod[stocks[0].period] || cons[0].value;
       const days = curS / curC;
 
       // 2-year average as proxy for 5-year
       const avgS = stocks.reduce((a,d)=>a+d.value,0) / stocks.length;
 
       // history (matched by period)
-      const cMap = Object.fromEntries(cons.map(d=>[d.period, d.value]));
       const hist = stocks.slice(0,52).reverse().map(d => ({
         week: d.period,
-        value: Math.round((d.value / (cMap[d.period]||curC)) * 10) / 10,
+        value: Math.round((d.value / (denominatorByPeriod[d.period]||curC)) * 10) / 10,
       }));
 
       // baseline from actual data, with outlier guard
-      const baseline = robustBaselineFromSeries(stocks, cons, BASELINE, days);
+      const baseline = robustBaselineFromSeries(stocks, denominatorByPeriod, BASELINE, days);
 
       results[s.id] = {
         stocks: curS,
@@ -204,7 +215,7 @@ async function main() {
     baselineDate: BASELINE, commodities: results, histories,
     meta: {
       source:'EIA API v2 via /v2/seriesid/',
-      formula:'Days = Stocks(kb) ÷ ProductSupplied(kb/d)  — NO divide-by-7',
+      formula:'Crude: Stocks(kb) ÷ 4-week avg RefineryNetInput(kb/d); Products: Stocks(kb) ÷ ProductSupplied(kb/d)',
       seriesIds: Object.fromEntries(SERIES.map(s=>[s.id,{stock:s.stock,cons:s.cons}])),
     },
   };
