@@ -1,6 +1,6 @@
 {
   "timestamp": "2026-04-03",
-  "fetchedAt": "2026-04-11T02:41:30.487Z",
+  "fetchedAt": "2026-04-11T04:32:24.287Z",
   "baselineDate": "2026-02-27",
   "commodities": {
     "crude_excl_spr": {
@@ -1342,9 +1342,9 @@
     {
       "ticker": "WTI",
       "name": "WTI Crude",
-      "price": 95.63,
-      "change": -2.24,
-      "pct": -2.29,
+      "price": 96.57,
+      "change": -1.3,
+      "pct": -1.33,
       "source": "yahoo-futures",
       "symbol": "CL=F",
       "seriesId": "PET.RWTC.D"
