@@ -1,230 +1,230 @@
 {
   "timestamp": "2026-04-10",
-  "fetchedAt": "2026-04-18T20:47:56.804Z",
+  "fetchedAt": "2026-04-18T21:35:28.496Z",
   "baselineDate": "2026-02-27",
   "commodities": {
-    "jet_fuel": {
-      "stocks": 42514,
-      "dailyConsumption": 1880,
-      "daysOfSupply": 22.6,
-      "prevWeekStocks": 43343,
-      "fiveYrAvg": 43422,
-      "pctVsFiveYr": -2.1,
-      "baselineStocks": 42090,
-      "baselineDays": 24.5,
+    "distillate": {
+      "stocks": 111559,
+      "dailyConsumption": 3840,
+      "daysOfSupply": 29.1,
+      "prevWeekStocks": 114681,
+      "fiveYrAvg": 117731,
+      "pctVsFiveYr": -5.2,
+      "baselineStocks": 120780,
+      "baselineDays": 32.7,
       "baselinePeriod": "2026-02-27",
       "period": "2026-04-10"
     }
   },
   "histories": {
-    "jet_fuel": [
+    "distillate": [
       {
         "week": "2025-04-18",
-        "value": 20.6
+        "value": 27.4
       },
       {
         "week": "2025-04-25",
-        "value": 26.6
+        "value": 30.4
       },
       {
         "week": "2025-05-02",
-        "value": 19.8
+        "value": 30.3
       },
       {
         "week": "2025-05-09",
-        "value": 27.3
+        "value": 27.4
       },
       {
         "week": "2025-05-16",
-        "value": 25.5
+        "value": 30.5
       },
       {
         "week": "2025-05-23",
-        "value": 24
+        "value": 26.6
       },
       {
         "week": "2025-05-30",
-        "value": 24.8
+        "value": 34.2
       },
       {
         "week": "2025-06-06",
-        "value": 23.7
+        "value": 32.3
       },
       {
         "week": "2025-06-13",
-        "value": 24.5
+        "value": 29.2
       },
       {
         "week": "2025-06-20",
-        "value": 26.1
+        "value": 27.8
       },
       {
         "week": "2025-06-27",
-        "value": 26
+        "value": 25.6
       },
       {
         "week": "2025-07-04",
-        "value": 23
+        "value": 28
       },
       {
         "week": "2025-07-11",
-        "value": 27.5
+        "value": 31.3
       },
       {
         "week": "2025-07-18",
-        "value": 27.1
+        "value": 32.9
       },
       {
         "week": "2025-07-25",
-        "value": 20.7
+        "value": 31.5
       },
       {
         "week": "2025-08-01",
-        "value": 26
+        "value": 30.4
       },
       {
         "week": "2025-08-08",
-        "value": 23.9
+        "value": 30.7
       },
       {
         "week": "2025-08-15",
-        "value": 22.8
+        "value": 29.2
       },
       {
         "week": "2025-08-22",
-        "value": 25.2
+        "value": 27.6
       },
       {
         "week": "2025-08-29",
-        "value": 25.1
+        "value": 30.8
       },
       {
         "week": "2025-09-05",
-        "value": 24.7
+        "value": 35.7
       },
       {
         "week": "2025-09-12",
-        "value": 27
+        "value": 34.4
       },
       {
         "week": "2025-09-19",
-        "value": 30
+        "value": 32.9
       },
       {
         "week": "2025-09-26",
-        "value": 25.5
+        "value": 34.2
       },
       {
         "week": "2025-10-03",
-        "value": 26.1
+        "value": 28
       },
       {
         "week": "2025-10-10",
-        "value": 26.3
+        "value": 27.6
       },
       {
         "week": "2025-10-17",
-        "value": 25
+        "value": 30
       },
       {
         "week": "2025-10-24",
-        "value": 21.3
+        "value": 31.3
       },
       {
         "week": "2025-10-31",
-        "value": 24.8
+        "value": 30.1
       },
       {
         "week": "2025-11-07",
-        "value": 26.2
+        "value": 27.6
       },
       {
         "week": "2025-11-14",
-        "value": 25.7
-      },
-      {
-        "week": "2025-11-21",
-        "value": 25.5
-      },
-      {
-        "week": "2025-11-28",
-        "value": 25.6
-      },
-      {
-        "week": "2025-12-05",
-        "value": 23.6
-      },
-      {
-        "week": "2025-12-12",
-        "value": 25.7
-      },
-      {
-        "week": "2025-12-19",
-        "value": 29
-      },
-      {
-        "week": "2025-12-26",
-        "value": 24.8
-      },
-      {
-        "week": "2026-01-02",
-        "value": 25.8
-      },
-      {
-        "week": "2026-01-09",
-        "value": 23
-      },
-      {
-        "week": "2026-01-16",
-        "value": 25.5
-      },
-      {
-        "week": "2026-01-23",
-        "value": 31.4
-      },
-      {
-        "week": "2026-01-30",
-        "value": 25.6
-      },
-      {
-        "week": "2026-02-06",
         "value": 28.6
       },
       {
+        "week": "2025-11-21",
+        "value": 33.4
+      },
+      {
+        "week": "2025-11-28",
+        "value": 33.3
+      },
+      {
+        "week": "2025-12-05",
+        "value": 28.1
+      },
+      {
+        "week": "2025-12-12",
+        "value": 31.3
+      },
+      {
+        "week": "2025-12-19",
+        "value": 28.6
+      },
+      {
+        "week": "2025-12-26",
+        "value": 36.6
+      },
+      {
+        "week": "2026-01-02",
+        "value": 40.5
+      },
+      {
+        "week": "2026-01-09",
+        "value": 31.6
+      },
+      {
+        "week": "2026-01-16",
+        "value": 37.6
+      },
+      {
+        "week": "2026-01-23",
+        "value": 32.7
+      },
+      {
+        "week": "2026-01-30",
+        "value": 29.6
+      },
+      {
+        "week": "2026-02-06",
+        "value": 28
+      },
+      {
         "week": "2026-02-13",
-        "value": 27.5
+        "value": 25.3
       },
       {
         "week": "2026-02-20",
-        "value": 24.7
+        "value": 30.9
       },
       {
         "week": "2026-02-27",
-        "value": 24.5
+        "value": 32.7
       },
       {
         "week": "2026-03-06",
-        "value": 23.1
+        "value": 29.4
       },
       {
         "week": "2026-03-13",
-        "value": 31.9
+        "value": 26.6
       },
       {
         "week": "2026-03-20",
-        "value": 28.4
+        "value": 33.6
       },
       {
         "week": "2026-03-27",
-        "value": 24.6
+        "value": 29.2
       },
       {
         "week": "2026-04-03",
-        "value": 25.8
+        "value": 28.2
       },
       {
         "week": "2026-04-10",
-        "value": 22.6
+        "value": 29.1
       }
     ]
   },
