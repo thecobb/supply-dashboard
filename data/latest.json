@@ -1,6 +1,6 @@
 {
   "timestamp": "2026-04-17",
-  "fetchedAt": "2026-04-23T21:42:56.065Z",
+  "fetchedAt": "2026-04-23T22:41:40.003Z",
   "baselineDate": "2026-02-27",
   "commodities": {
     "crude_excl_spr": {
@@ -1342,9 +1342,9 @@
     {
       "ticker": "WTI",
       "name": "WTI Crude",
-      "price": 97,
-      "change": 4.04,
-      "pct": 4.35,
+      "price": 96.88,
+      "change": 1.03,
+      "pct": 1.07,
       "source": "yahoo-futures",
       "symbol": "CL=F",
       "seriesId": "PET.RWTC.D"
@@ -1352,9 +1352,9 @@
     {
       "ticker": "BRENT",
       "name": "Brent Crude",
-      "price": 106.47,
-      "change": 4.56,
-      "pct": 4.47,
+      "price": 106.28,
+      "change": 1.21,
+      "pct": 1.15,
       "source": "yahoo-futures",
       "symbol": "BZ=F",
       "seriesId": "PET.RBRTE.D"
@@ -1362,9 +1362,9 @@
     {
       "ticker": "HH",
       "name": "Henry Hub NG",
-      "price": 2.743,
-      "change": -0.118,
-      "pct": -4.12,
+      "price": 2.736,
+      "change": -0.024,
+      "pct": -0.87,
       "source": "yahoo-futures",
       "symbol": "NG=F",
       "seriesId": "NG.RNGWHHD.D"
@@ -1372,9 +1372,9 @@
     {
       "ticker": "RBOB",
       "name": "RBOB Gasoline",
-      "price": 3.3519,
-      "change": 0.103,
-      "pct": 3.19,
+      "price": 3.3596,
+      "change": 0.025,
+      "pct": 0.76,
       "source": "yahoo-futures",
       "symbol": "RB=F",
       "seriesId": "PET.EER_EPMRU_PF4_RGC_DPG.D"
@@ -1382,9 +1382,9 @@
     {
       "ticker": "ULSD",
       "name": "ULSD Diesel",
-      "price": 3.8923,
-      "change": 0.076,
-      "pct": 2,
+      "price": 3.8921,
+      "change": 0.024,
+      "pct": 0.63,
       "source": "yahoo-futures",
       "symbol": "HO=F",
       "seriesId": "PET.EER_EPD2DXL0_PF4_RGC_DPG.D"
@@ -1393,8 +1393,8 @@
       "ticker": "PROPN",
       "name": "Propane",
       "price": 0.885,
-      "change": 0.086,
-      "pct": 10.69,
+      "change": 0.073,
+      "pct": 9.03,
       "source": "yahoo-futures",
       "symbol": "B0=F",
       "seriesId": "PET.EER_EPLLPA_PF4_RGC_DPG.D"
