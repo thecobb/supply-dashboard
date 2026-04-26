@@ -1,6 +1,6 @@
 {
   "timestamp": "2026-04-17",
-  "fetchedAt": "2026-04-26T19:29:30.177Z",
+  "fetchedAt": "2026-04-26T20:05:52.040Z",
   "baselineDate": "2026-02-27",
   "commodities": {
     "propane": {
@@ -253,8 +253,8 @@
       "ticker": "HH",
       "name": "Henry Hub NG",
       "price": 2.683,
-      "change": -0.077,
-      "pct": -2.79,
+      "change": 0,
+      "pct": 0,
       "source": "yahoo-futures",
       "symbol": "NG=F",
       "seriesId": "NG.RNGWHHD.D"
@@ -283,8 +283,8 @@
       "ticker": "PROPN",
       "name": "Propane",
       "price": 0.80966,
-      "change": -0.002,
-      "pct": -0.25,
+      "change": 0,
+      "pct": 0,
       "source": "yahoo-futures",
       "symbol": "B0=F",
       "seriesId": "PET.EER_EPLLPA_PF4_RGC_DPG.D"
