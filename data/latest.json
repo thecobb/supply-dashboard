@@ -1,87 +1,83 @@
 {
-  "timestamp": "2026-04-17",
-  "fetchedAt": "2026-04-29T17:17:25.714Z",
+  "timestamp": "2026-04-24",
+  "fetchedAt": "2026-04-29T17:56:19.883Z",
   "baselineDate": "2026-02-27",
   "commodities": {
     "crude_excl_spr": {
-      "stocks": 465729,
-      "dailyConsumption": 16165,
-      "daysOfSupply": 28.8,
-      "prevWeekStocks": 463804,
-      "fiveYrAvg": 431349,
-      "pctVsFiveYr": 8,
+      "stocks": 459495,
+      "dailyConsumption": 16088,
+      "daysOfSupply": 28.6,
+      "prevWeekStocks": 465729,
+      "fiveYrAvg": 431335,
+      "pctVsFiveYr": 6.5,
       "baselineStocks": 439279,
       "baselineDays": 27.6,
       "baselinePeriod": "2026-02-27",
-      "period": "2026-04-17"
+      "period": "2026-04-24"
     },
     "crude_incl_spr": {
-      "stocks": 870774,
-      "dailyConsumption": 16165,
-      "daysOfSupply": 53.9,
-      "prevWeekStocks": 872985,
-      "fiveYrAvg": 827618,
-      "pctVsFiveYr": 5.2,
+      "stocks": 857419,
+      "dailyConsumption": 16088,
+      "daysOfSupply": 53.3,
+      "prevWeekStocks": 870774,
+      "fiveYrAvg": 827909,
+      "pctVsFiveYr": 3.6,
       "baselineStocks": 854720,
       "baselineDays": 53.8,
       "baselinePeriod": "2026-02-27",
-      "period": "2026-04-17"
+      "period": "2026-04-24"
     },
     "gasoline": {
-      "stocks": 228374,
-      "dailyConsumption": 9055,
-      "daysOfSupply": 25.2,
-      "prevWeekStocks": 232944,
-      "fiveYrAvg": 229343,
-      "pctVsFiveYr": -0.4,
+      "stocks": 222299,
+      "dailyConsumption": 9104,
+      "daysOfSupply": 24.4,
+      "prevWeekStocks": 228374,
+      "fiveYrAvg": 229296,
+      "pctVsFiveYr": -3.1,
       "baselineStocks": 253130,
       "baselineDays": 30.5,
       "baselinePeriod": "2026-02-27",
-      "period": "2026-04-17"
+      "period": "2026-04-24"
     },
     "distillate": {
-      "stocks": 108132,
-      "dailyConsumption": 4032,
-      "daysOfSupply": 26.8,
-      "prevWeekStocks": 111559,
-      "fiveYrAvg": 117649,
-      "pctVsFiveYr": -8.1,
+      "stocks": 103638,
+      "dailyConsumption": 4113,
+      "daysOfSupply": 25.2,
+      "prevWeekStocks": 108132,
+      "fiveYrAvg": 117532,
+      "pctVsFiveYr": -11.8,
       "baselineStocks": 120780,
       "baselineDays": 32.7,
       "baselinePeriod": "2026-02-27",
-      "period": "2026-04-17"
+      "period": "2026-04-24"
     },
     "jet_fuel": {
-      "stocks": 43705,
-      "dailyConsumption": 1599,
-      "daysOfSupply": 27.3,
-      "prevWeekStocks": 42514,
-      "fiveYrAvg": 43449,
-      "pctVsFiveYr": 0.6,
+      "stocks": 44166,
+      "dailyConsumption": 1780,
+      "daysOfSupply": 24.8,
+      "prevWeekStocks": 43705,
+      "fiveYrAvg": 43485,
+      "pctVsFiveYr": 1.6,
       "baselineStocks": 42090,
       "baselineDays": 24.5,
       "baselinePeriod": "2026-02-27",
-      "period": "2026-04-17"
+      "period": "2026-04-24"
     },
     "propane": {
-      "stocks": 79990,
-      "dailyConsumption": 694,
-      "daysOfSupply": 115.3,
-      "prevWeekStocks": 77897,
-      "fiveYrAvg": 80686,
-      "pctVsFiveYr": -0.9,
+      "stocks": 78846,
+      "dailyConsumption": 988,
+      "daysOfSupply": 79.8,
+      "prevWeekStocks": 79990,
+      "fiveYrAvg": 80897,
+      "pctVsFiveYr": -2.5,
       "baselineStocks": 73351,
       "baselineDays": 57.8,
       "baselinePeriod": "2026-02-27",
-      "period": "2026-04-17"
+      "period": "2026-04-24"
     }
   },
   "histories": {
     "crude_excl_spr": [
-      {
-        "week": "2025-04-25",
-        "value": 27.9
-      },
       {
         "week": "2025-05-02",
         "value": 27.6
@@ -285,13 +281,13 @@
       {
         "week": "2026-04-17",
         "value": 28.8
+      },
+      {
+        "week": "2026-04-24",
+        "value": 28.6
       }
     ],
     "crude_incl_spr": [
-      {
-        "week": "2025-04-25",
-        "value": 53.1
-      },
       {
         "week": "2025-05-02",
         "value": 52.7
@@ -495,13 +491,13 @@
       {
         "week": "2026-04-17",
         "value": 53.9
+      },
+      {
+        "week": "2026-04-24",
+        "value": 53.3
       }
     ],
     "gasoline": [
-      {
-        "week": "2025-04-25",
-        "value": 24.8
-      },
       {
         "week": "2025-05-02",
         "value": 25.9
@@ -705,13 +701,13 @@
       {
         "week": "2026-04-17",
         "value": 25.2
+      },
+      {
+        "week": "2026-04-24",
+        "value": 24.4
       }
     ],
     "distillate": [
-      {
-        "week": "2025-04-25",
-        "value": 30.4
-      },
       {
         "week": "2025-05-02",
         "value": 30.3
@@ -915,13 +911,13 @@
       {
         "week": "2026-04-17",
         "value": 26.8
+      },
+      {
+        "week": "2026-04-24",
+        "value": 25.2
       }
     ],
     "jet_fuel": [
-      {
-        "week": "2025-04-25",
-        "value": 26.6
-      },
       {
         "week": "2025-05-02",
         "value": 19.8
@@ -1125,13 +1121,13 @@
       {
         "week": "2026-04-17",
         "value": 27.3
+      },
+      {
+        "week": "2026-04-24",
+        "value": 24.8
       }
     ],
     "propane": [
-      {
-        "week": "2025-04-25",
-        "value": 53.8
-      },
       {
         "week": "2025-05-02",
         "value": 43.8
@@ -1335,6 +1331,10 @@
       {
         "week": "2026-04-17",
         "value": 115.3
+      },
+      {
+        "week": "2026-04-24",
+        "value": 79.8
       }
     ]
   },
@@ -1342,9 +1342,9 @@
     {
       "ticker": "WTI",
       "name": "WTI Crude",
-      "price": 107.24,
-      "change": 7.31,
-      "pct": 7.32,
+      "price": 107,
+      "change": 7.07,
+      "pct": 7.07,
       "source": "yahoo-futures",
       "symbol": "CL=F",
       "seriesId": "PET.RWTC.D"
@@ -1352,9 +1352,9 @@
     {
       "ticker": "BRENT",
       "name": "Brent Crude",
-      "price": 111.23,
-      "change": 6.83,
-      "pct": 6.54,
+      "price": 110.91,
+      "change": 6.51,
+      "pct": 6.24,
       "source": "yahoo-futures",
       "symbol": "BZ=F",
       "seriesId": "PET.RBRTE.D"
@@ -1362,9 +1362,9 @@
     {
       "ticker": "HH",
       "name": "Henry Hub NG",
-      "price": 2.634,
-      "change": -0.057,
-      "pct": -2.12,
+      "price": 2.638,
+      "change": -0.053,
+      "pct": -1.97,
       "source": "yahoo-futures",
       "symbol": "NG=F",
       "seriesId": "NG.RNGWHHD.D"
@@ -1372,9 +1372,9 @@
     {
       "ticker": "RBOB",
       "name": "RBOB Gasoline",
-      "price": 3.6014,
-      "change": 0.174,
-      "pct": 5.08,
+      "price": 3.5887,
+      "change": 0.161,
+      "pct": 4.71,
       "source": "yahoo-futures",
       "symbol": "RB=F",
       "seriesId": "PET.EER_EPMRU_PF4_RGC_DPG.D"
@@ -1382,9 +1382,9 @@
     {
       "ticker": "ULSD",
       "name": "ULSD Diesel",
-      "price": 4.1147,
-      "change": 0.222,
-      "pct": 5.7,
+      "price": 4.1204,
+      "change": 0.228,
+      "pct": 5.85,
       "source": "yahoo-futures",
       "symbol": "HO=F",
       "seriesId": "PET.EER_EPD2DXL0_PF4_RGC_DPG.D"
