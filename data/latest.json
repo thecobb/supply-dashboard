@@ -1,6 +1,6 @@
 {
   "timestamp": "2026-05-08",
-  "fetchedAt": "2026-05-14T19:41:48.777Z",
+  "fetchedAt": "2026-05-14T19:43:00.101Z",
   "baselineDate": "2026-02-27",
   "commodities": {
     "crude_excl_spr": {
@@ -1342,9 +1342,9 @@
     {
       "ticker": "WTI",
       "name": "WTI Crude",
-      "price": 101.63,
-      "change": 0.61,
-      "pct": 0.6,
+      "price": 101.65,
+      "change": 0.63,
+      "pct": 0.62,
       "source": "yahoo-futures",
       "symbol": "CL=F",
       "seriesId": "PET.RWTC.D"
@@ -1362,9 +1362,9 @@
     {
       "ticker": "HH",
       "name": "Henry Hub NG",
-      "price": 2.906,
-      "change": 0.042,
-      "pct": 1.47,
+      "price": 2.907,
+      "change": 0.043,
+      "pct": 1.5,
       "source": "yahoo-futures",
       "symbol": "NG=F",
       "seriesId": "NG.RNGWHHD.D"
@@ -1382,9 +1382,9 @@
     {
       "ticker": "ULSD",
       "name": "ULSD Diesel",
-      "price": 3.912,
+      "price": 3.9112,
       "change": -0.055,
-      "pct": -1.38,
+      "pct": -1.4,
       "source": "yahoo-futures",
       "symbol": "HO=F",
       "seriesId": "PET.EER_EPD2DXL0_PF4_RGC_DPG.D"
