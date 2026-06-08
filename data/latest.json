@@ -1,6 +1,6 @@
 {
   "timestamp": "2026-05-29",
-  "fetchedAt": "2026-06-08T06:41:04.929Z",
+  "fetchedAt": "2026-06-08T11:55:24.879Z",
   "baselineDate": "2026-02-27",
   "commodities": {
     "crude_excl_spr": {
@@ -1342,9 +1342,9 @@
     {
       "ticker": "WTI",
       "name": "WTI Crude",
-      "price": 94.3,
-      "change": 3.76,
-      "pct": 4.15,
+      "price": 91.56,
+      "change": 1.02,
+      "pct": 1.13,
       "source": "yahoo-futures",
       "symbol": "CL=F",
       "seriesId": "PET.RWTC.D"
@@ -1352,9 +1352,9 @@
     {
       "ticker": "BRENT",
       "name": "Brent Crude",
-      "price": 97.27,
-      "change": 4.18,
-      "pct": 4.49,
+      "price": 94.25,
+      "change": 1.16,
+      "pct": 1.25,
       "source": "yahoo-futures",
       "symbol": "BZ=F",
       "seriesId": "PET.RBRTE.D"
@@ -1362,9 +1362,9 @@
     {
       "ticker": "HH",
       "name": "Henry Hub NG",
-      "price": 3.169,
-      "change": -0.06,
-      "pct": -1.86,
+      "price": 3.127,
+      "change": -0.102,
+      "pct": -3.16,
       "source": "yahoo-futures",
       "symbol": "NG=F",
       "seriesId": "NG.RNGWHHD.D"
@@ -1372,9 +1372,9 @@
     {
       "ticker": "RBOB",
       "name": "RBOB Gasoline",
-      "price": 3.0823,
-      "change": 0.095,
-      "pct": 3.2,
+      "price": 3.0323,
+      "change": 0.046,
+      "pct": 1.52,
       "source": "yahoo-futures",
       "symbol": "RB=F",
       "seriesId": "PET.EER_EPMRU_PF4_RGC_DPG.D"
@@ -1382,9 +1382,9 @@
     {
       "ticker": "ULSD",
       "name": "ULSD Diesel",
-      "price": 3.736,
-      "change": 0.149,
-      "pct": 4.14,
+      "price": 3.6444,
+      "change": 0.057,
+      "pct": 1.59,
       "source": "yahoo-futures",
       "symbol": "HO=F",
       "seriesId": "PET.EER_EPD2DXL0_PF4_RGC_DPG.D"
@@ -1392,9 +1392,9 @@
     {
       "ticker": "PROPN",
       "name": "Propane",
-      "price": 0.8775,
-      "change": 0.063,
-      "pct": 7.73,
+      "price": 0.805,
+      "change": 0.01,
+      "pct": 1.26,
       "source": "yahoo-futures",
       "symbol": "B0=F",
       "seriesId": "PET.EER_EPLLPA_PF4_RGC_DPG.D"
