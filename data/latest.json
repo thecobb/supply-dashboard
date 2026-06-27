@@ -1,6 +1,6 @@
 {
   "timestamp": "2026-06-19",
-  "fetchedAt": "2026-06-27T07:47:23.444Z",
+  "fetchedAt": "2026-06-27T10:05:16.686Z",
   "baselineDate": "2026-02-27",
   "commodities": {
     "crude_excl_spr": {
@@ -1392,9 +1392,9 @@
     {
       "ticker": "PROPN",
       "name": "Propane",
-      "price": 0.71,
-      "change": -0.01,
-      "pct": -1.33,
+      "price": 0.7125,
+      "change": -0.007,
+      "pct": -0.98,
       "source": "yahoo-futures",
       "symbol": "B0=F",
       "seriesId": "PET.EER_EPLLPA_PF4_RGC_DPG.D"
