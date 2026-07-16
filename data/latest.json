@@ -1,6 +1,6 @@
 {
   "timestamp": "2026-07-10",
-  "fetchedAt": "2026-07-16T21:31:46.335Z",
+  "fetchedAt": "2026-07-16T22:54:54.036Z",
   "baselineDate": "2026-02-27",
   "commodities": {
     "crude_excl_spr": {
@@ -1342,9 +1342,9 @@
     {
       "ticker": "WTI",
       "name": "WTI Crude",
-      "price": 78.89,
-      "change": -0.23,
-      "pct": -0.29,
+      "price": 78.96,
+      "change": 0.68,
+      "pct": 0.87,
       "source": "yahoo-futures",
       "symbol": "CL=F",
       "seriesId": "PET.RWTC.D"
@@ -1352,9 +1352,9 @@
     {
       "ticker": "BRENT",
       "name": "Brent Crude",
-      "price": 84.86,
-      "change": -0.09,
-      "pct": -0.11,
+      "price": 84.93,
+      "change": 0.7,
+      "pct": 0.83,
       "source": "yahoo-futures",
       "symbol": "BZ=F",
       "seriesId": "PET.RBRTE.D"
@@ -1362,9 +1362,9 @@
     {
       "ticker": "HH",
       "name": "Henry Hub NG",
-      "price": 2.892,
-      "change": -0.032,
-      "pct": -1.09,
+      "price": 2.897,
+      "change": 0.039,
+      "pct": 1.36,
       "source": "yahoo-futures",
       "symbol": "NG=F",
       "seriesId": "NG.RNGWHHD.D"
@@ -1372,9 +1372,9 @@
     {
       "ticker": "RBOB",
       "name": "RBOB Gasoline",
-      "price": 3.1129,
-      "change": 0.015,
-      "pct": 0.5,
+      "price": 3.1146,
+      "change": 0.023,
+      "pct": 0.76,
       "source": "yahoo-futures",
       "symbol": "RB=F",
       "seriesId": "PET.EER_EPMRU_PF4_RGC_DPG.D"
@@ -1383,8 +1383,8 @@
       "ticker": "ULSD",
       "name": "ULSD Diesel",
       "price": 3.9442,
-      "change": 0.105,
-      "pct": 2.72,
+      "change": 0.03,
+      "pct": 0.78,
       "source": "yahoo-futures",
       "symbol": "HO=F",
       "seriesId": "PET.EER_EPD2DXL0_PF4_RGC_DPG.D"
@@ -1393,8 +1393,8 @@
       "ticker": "PROPN",
       "name": "Propane",
       "price": 0.755,
-      "change": 0.003,
-      "pct": 0.33,
+      "change": -0.004,
+      "pct": -0.55,
       "source": "yahoo-futures",
       "symbol": "B0=F",
       "seriesId": "PET.EER_EPLLPA_PF4_RGC_DPG.D"
