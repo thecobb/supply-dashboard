@@ -1,6 +1,6 @@
 {
   "timestamp": "2026-07-10",
-  "fetchedAt": "2026-07-17T08:05:03.400Z",
+  "fetchedAt": "2026-07-17T10:17:00.324Z",
   "baselineDate": "2026-02-27",
   "commodities": {
     "crude_excl_spr": {
@@ -1342,9 +1342,9 @@
     {
       "ticker": "WTI",
       "name": "WTI Crude",
-      "price": 78.8,
-      "change": 0.52,
-      "pct": 0.66,
+      "price": 79.72,
+      "change": 1.44,
+      "pct": 1.84,
       "source": "yahoo-futures",
       "symbol": "CL=F",
       "seriesId": "PET.RWTC.D"
@@ -1352,9 +1352,9 @@
     {
       "ticker": "BRENT",
       "name": "Brent Crude",
-      "price": 84.47,
-      "change": 0.24,
-      "pct": 0.28,
+      "price": 85.63,
+      "change": 1.4,
+      "pct": 1.66,
       "source": "yahoo-futures",
       "symbol": "BZ=F",
       "seriesId": "PET.RBRTE.D"
@@ -1362,9 +1362,9 @@
     {
       "ticker": "HH",
       "name": "Henry Hub NG",
-      "price": 2.863,
-      "change": 0.005,
-      "pct": 0.17,
+      "price": 2.871,
+      "change": 0.013,
+      "pct": 0.45,
       "source": "yahoo-futures",
       "symbol": "NG=F",
       "seriesId": "NG.RNGWHHD.D"
@@ -1372,9 +1372,9 @@
     {
       "ticker": "RBOB",
       "name": "RBOB Gasoline",
-      "price": 3.1009,
-      "change": 0.01,
-      "pct": 0.31,
+      "price": 3.1145,
+      "change": 0.023,
+      "pct": 0.75,
       "source": "yahoo-futures",
       "symbol": "RB=F",
       "seriesId": "PET.EER_EPMRU_PF4_RGC_DPG.D"
@@ -1382,9 +1382,9 @@
     {
       "ticker": "ULSD",
       "name": "ULSD Diesel",
-      "price": 3.9453,
-      "change": 0.031,
-      "pct": 0.8,
+      "price": 3.9602,
+      "change": 0.046,
+      "pct": 1.19,
       "source": "yahoo-futures",
       "symbol": "HO=F",
       "seriesId": "PET.EER_EPD2DXL0_PF4_RGC_DPG.D"
