@@ -1,6 +1,6 @@
 {
   "timestamp": "2026-07-24",
-  "fetchedAt": "2026-08-05T15:20:30.445Z",
+  "fetchedAt": "2026-08-05T17:01:12.518Z",
   "baselineDate": "2026-02-27",
   "commodities": {
     "crude_excl_spr": {
@@ -1342,9 +1342,9 @@
     {
       "ticker": "WTI",
       "name": "WTI Crude",
-      "price": 75.35,
-      "change": -0.42,
-      "pct": -0.55,
+      "price": 74.94,
+      "change": -0.83,
+      "pct": -1.1,
       "source": "yahoo-futures",
       "symbol": "CL=F",
       "seriesId": "PET.RWTC.D"
@@ -1352,9 +1352,9 @@
     {
       "ticker": "BRENT",
       "name": "Brent Crude",
-      "price": 79.17,
-      "change": -0.19,
-      "pct": -0.24,
+      "price": 79.12,
+      "change": -0.24,
+      "pct": -0.3,
       "source": "yahoo-futures",
       "symbol": "BZ=F",
       "seriesId": "PET.RBRTE.D"
@@ -1362,9 +1362,9 @@
     {
       "ticker": "HH",
       "name": "Henry Hub NG",
-      "price": 2.669,
-      "change": -0.013,
-      "pct": -0.48,
+      "price": 2.689,
+      "change": 0.007,
+      "pct": 0.26,
       "source": "yahoo-futures",
       "symbol": "NG=F",
       "seriesId": "NG.RNGWHHD.D"
@@ -1372,9 +1372,9 @@
     {
       "ticker": "RBOB",
       "name": "RBOB Gasoline",
-      "price": 2.601,
-      "change": -0.003,
-      "pct": -0.12,
+      "price": 2.8303,
+      "change": -0.022,
+      "pct": -0.77,
       "source": "yahoo-futures",
       "symbol": "RB=F",
       "seriesId": "PET.EER_EPMRU_PF4_RGC_DPG.D"
@@ -1382,9 +1382,9 @@
     {
       "ticker": "ULSD",
       "name": "ULSD Diesel",
-      "price": 3.8159,
-      "change": 0.045,
-      "pct": 1.2,
+      "price": 3.7992,
+      "change": 0.029,
+      "pct": 0.76,
       "source": "yahoo-futures",
       "symbol": "HO=F",
       "seriesId": "PET.EER_EPD2DXL0_PF4_RGC_DPG.D"
@@ -1392,9 +1392,9 @@
     {
       "ticker": "PROPN",
       "name": "Propane",
-      "price": 0.695,
-      "change": 0.021,
-      "pct": 3.07,
+      "price": 0.735,
+      "change": 0.029,
+      "pct": 4.07,
       "source": "yahoo-futures",
       "symbol": "B0=F",
       "seriesId": "PET.EER_EPLLPA_PF4_RGC_DPG.D"
